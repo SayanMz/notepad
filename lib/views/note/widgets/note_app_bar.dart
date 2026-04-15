@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart';
+import 'package:notepad/views/note/widgets/save_indicator.dart';
 
 /// AppBar for NotePage
 ///
@@ -18,16 +20,20 @@ class NoteAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onToggleEdit,
     required this.onUndo,
     required this.onRedo,
-    required this.canUndo, // ADD THIS
-    required this.canRedo, // ADD THIS
+    required this.canUndo, 
+    required this.canRedo, 
+    required this.saveState, 
+    required this.contentController,
   });
 
   final bool isEditing;
   final VoidCallback onToggleEdit;
   final VoidCallback onUndo;
   final VoidCallback onRedo;
-  final bool canUndo; // ADD THIS
-  final bool canRedo; // ADD THIS
+  final bool canUndo;
+  final bool canRedo; 
+  final ValueNotifier<SaveState> saveState;
+  final QuillController contentController;
 
   @override
   Widget build(BuildContext context) {
@@ -35,17 +41,22 @@ class NoteAppBar extends StatelessWidget implements PreferredSizeWidget {
     final iconColor = isDark ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant;
 
     return AppBar(
-      //title: const Text('Note'),
+      title: const Text('Note'),
       centerTitle: true,
       actions: [
+  /// SAVE INDICATOR (isolated, efficient)
+  Padding(
+    padding: const EdgeInsets.only(right: 8),
+    child: SaveIndicator(saveState: saveState),
+  ),
         IconButton(
           icon: const Icon(Icons.undo),
-          onPressed: canUndo ? onUndo : null,
+          onPressed: contentController.hasUndo ? () => contentController.undo() : null,
           color: canUndo ? iconColor : Colors.grey, // Reactive color
         ),
         IconButton(
           icon: const Icon(Icons.redo),
-          onPressed: canRedo ? onRedo : null,
+          onPressed: contentController.hasRedo ? () => contentController.redo() : null,
           color: canRedo ? iconColor : Colors.grey, // Reactive color
         ),
       ],

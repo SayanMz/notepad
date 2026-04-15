@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:notepad/data/app_data.dart';
 import 'package:notepad/data/note_repository.dart';
 import 'package:notepad/services/note_text_utils.dart';
-import 'package:notepad/views/pages/note_page.dart';
+import 'package:notepad/views/note/note_page.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});

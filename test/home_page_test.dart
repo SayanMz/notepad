@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:notepad/views/pages/home_page.dart';
+import 'package:notepad/views/home/home_page.dart';
 import 'package:notepad/data/note_repository.dart'; 
 import 'package:notepad/main.dart'; // Needed for rootScaffoldMessengerKey
 

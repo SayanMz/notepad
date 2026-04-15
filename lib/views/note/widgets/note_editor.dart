@@ -27,6 +27,18 @@ class _NoteEditorState extends State<NoteEditor> {
       config: const QuillEditorConfig(
         expands: true,
         padding: EdgeInsets.symmetric(horizontal: 12),
+        placeholder: 'Start typing your note...',
+        customStyles: DefaultStyles(
+          placeHolder: DefaultTextBlockStyle(
+            TextStyle(
+              fontSize: 18,
+              color: Color(0xFF515151),
+            ),
+        HorizontalSpacing(0, 0),
+        VerticalSpacing(0, 0),
+        VerticalSpacing(0, 0),
+                null)
+        )
       ),
     );
   }

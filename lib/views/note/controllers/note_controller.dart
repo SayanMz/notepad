@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-
+import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
-
+import 'package:flutter/foundation.dart';
 import 'package:notepad/data/note_repository.dart';
 import 'package:notepad/services/note_recovery_service.dart';
+import 'package:notepad/views/note/widgets/save_indicator.dart';
 
 /// Handles all non-UI logic for NotePage:
 /// - Autosave (debounced)
@@ -23,12 +24,14 @@ class NoteController {
 
   /// Current note ID (null for new note)
   String? noteId;
+  final ValueNotifier<SaveState> saveState =
+    ValueNotifier<SaveState>(SaveState.idle);
 
-  NoteController({
-    required this.recoveryService,
-    required this.noteRepository,
-    this.noteId,
-  });
+NoteController({
+  required this.recoveryService,
+  required this.noteRepository,
+  String? noteId,
+}) : noteId = noteId;
 
   /// Called whenever editor content changes
   ///
@@ -38,10 +41,9 @@ class NoteController {
   void handleEditorChanged({
     required String title,
     required Document document,
-    required Future<void> Function() save,
   }) {
     // Crash recovery (lightweight)
-    recoveryService.saveShadowDraft('new_note', [
+    recoveryService.saveShadowDraft(NoteRecoveryService.draftKey, [
       title,
       document.toPlainText(),
     ]);
@@ -51,7 +53,7 @@ class NoteController {
 
     _autosaveDebounce = Timer(
       const Duration(seconds: 3),
-      save,
+      () => saveNote(title: title, document: document)
     );
   }
 
@@ -72,6 +74,8 @@ class NoteController {
   if (_isSaving) return;
   _isSaving = true;
 
+  saveState.value = SaveState.saving;
+
   try {
     final resolvedTitle = title.trim().isEmpty ? 'Untitled note' : title.trim();
 
@@ -91,7 +95,16 @@ class NoteController {
     await noteRepository.persist();
   } finally {
     _isSaving = false;
+     saveState.value = SaveState.saved;
+
+ Future.delayed(const Duration(seconds: 1), () {
+    if (saveState.value == SaveState.saved) {
+      saveState.value = SaveState.idle;
+    }
+  });
   }
+
+   
 }
 
   void dispose() {

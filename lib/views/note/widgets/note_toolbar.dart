@@ -25,7 +25,11 @@ class NoteToolbar extends StatelessWidget {
         _buildRawGlassToolbar(context, [
           _buildRawToggle(context, Icons.format_bold, Attribute.bold),
           _buildRawToggle(context, Icons.format_italic, Attribute.italic),
-          _buildRawToggle(context, Icons.format_underlined, Attribute.underline),
+          _buildRawToggle(
+            context,
+            Icons.format_underlined,
+            Attribute.underline,
+          ),
           _buildRawAlignmentMenu(context),
         ]),
         _buildRawGlassToolbar(context, [
@@ -91,17 +95,24 @@ class NoteToolbar extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, child) {
-        final isSelected = controller.getSelectionStyle().attributes.containsKey(attr.key);
+        final isSelected = controller
+            .getSelectionStyle()
+            .attributes
+            .containsKey(attr.key);
         return IconButton(
           icon: Icon(
             icon,
             color: isSelected
                 ? Colors.blueAccent
-                : (isDark ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant),
+                : (isDark
+                      ? Colors.white
+                      : Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           onPressed: () {
             focusNode.requestFocus();
-            controller.formatSelection(isSelected ? Attribute.clone(attr, null) : attr);
+            controller.formatSelection(
+              isSelected ? Attribute.clone(attr, null) : attr,
+            );
           },
         );
       },
@@ -113,22 +124,37 @@ class NoteToolbar extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return MenuAnchor(
       builder: (context, menuController, child) => IconButton(
-        icon: Icon(Icons.format_align_justify, color: isDark ? Colors.white : colorScheme.onSurfaceVariant),
-        onPressed: () => menuController.isOpen ? menuController.close() : menuController.open(),
+        icon: Icon(
+          Icons.format_align_justify,
+          color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
+        ),
+        onPressed: () => menuController.isOpen
+            ? menuController.close()
+            : menuController.open(),
       ),
       menuChildren: [
         MenuItemButton(
-          leadingIcon: Icon(Icons.format_align_left, color: isDark ? Colors.white : colorScheme.onSurfaceVariant),
+          leadingIcon: Icon(
+            Icons.format_align_left,
+            color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
+          ),
           onPressed: () => controller.formatSelection(Attribute.leftAlignment),
           child: const Text('Left'),
         ),
         MenuItemButton(
-          leadingIcon: Icon(Icons.format_align_center, color: isDark ? Colors.white : colorScheme.onSurfaceVariant),
-          onPressed: () => controller.formatSelection(Attribute.centerAlignment),
+          leadingIcon: Icon(
+            Icons.format_align_center,
+            color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
+          ),
+          onPressed: () =>
+              controller.formatSelection(Attribute.centerAlignment),
           child: const Text('Center'),
         ),
         MenuItemButton(
-          leadingIcon: Icon(Icons.format_align_right, color: isDark ? Colors.white : colorScheme.onSurfaceVariant),
+          leadingIcon: Icon(
+            Icons.format_align_right,
+            color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
+          ),
           onPressed: () => controller.formatSelection(Attribute.rightAlignment),
           child: const Text('Right'),
         ),
@@ -142,8 +168,13 @@ class NoteToolbar extends StatelessWidget {
     return MenuAnchor(
       alignmentOffset: const Offset(-35, 0),
       builder: (context, menuController, child) => IconButton(
-        icon: Icon(Icons.text_fields, color: isDark ? Colors.white : colorScheme.onSurfaceVariant),
-        onPressed: () => menuController.isOpen ? menuController.close() : menuController.open(),
+        icon: Icon(
+          Icons.text_fields,
+          color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
+        ),
+        onPressed: () => menuController.isOpen
+            ? menuController.close()
+            : menuController.open(),
       ),
       menuChildren: [
         Padding(
@@ -151,7 +182,10 @@ class NoteToolbar extends StatelessWidget {
           child: Row(
             children: [
               IconButton(
-                icon: Icon(Icons.text_increase, color: isDark ? Colors.white : colorScheme.onSurfaceVariant),
+                icon: Icon(
+                  Icons.text_increase,
+                  color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
+                ),
                 onPressed: () => _changeTextSize(increase: true),
               ),
               SizedBox(
@@ -163,7 +197,10 @@ class NoteToolbar extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.text_decrease, color: isDark ? Colors.white : colorScheme.onSurfaceVariant),
+                icon: Icon(
+                  Icons.text_decrease,
+                  color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
+                ),
                 onPressed: () => _changeTextSize(increase: false),
               ),
             ],
@@ -178,7 +215,9 @@ class NoteToolbar extends StatelessWidget {
       alignmentOffset: const Offset(-60, 0),
       builder: (context, menuController, child) => IconButton(
         icon: const Icon(Icons.palette, color: Colors.redAccent),
-        onPressed: () => menuController.isOpen ? menuController.close() : menuController.open(),
+        onPressed: () => menuController.isOpen
+            ? menuController.close()
+            : menuController.open(),
       ),
       menuChildren: [
         SizedBox(
@@ -186,7 +225,12 @@ class NoteToolbar extends StatelessWidget {
           child: Wrap(
             alignment: WrapAlignment.center,
             children: [
-              Colors.black, Colors.red, Colors.blue, Colors.green, Colors.orange, Colors.purple,
+              Colors.black,
+              Colors.red,
+              Colors.blue,
+              Colors.green,
+              Colors.orange,
+              Colors.purple,
             ].map((color) => _buildColorCircle(color)).toList(),
           ),
         ),
@@ -199,7 +243,9 @@ class NoteToolbar extends StatelessWidget {
       listenable: controller,
       builder: (context, child) {
         final hexString = '#${color.toARGB32().toRadixString(16).substring(2)}';
-        final bool isSelected = controller.getSelectionStyle().attributes['color']?.value == hexString;
+        final bool isSelected =
+            controller.getSelectionStyle().attributes['color']?.value ==
+            hexString;
         return GestureDetector(
           onTap: () {
             final colorAttr = ColorAttribute(hexString);
@@ -237,17 +283,28 @@ class NoteToolbar extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return MenuAnchor(
       builder: (context, menuController, child) => IconButton(
-        icon: Icon(Icons.format_list_bulleted, color: isDark ? Colors.white : colorScheme.onSurfaceVariant),
-        onPressed: () => menuController.isOpen ? menuController.close() : menuController.open(),
+        icon: Icon(
+          Icons.format_list_bulleted,
+          color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
+        ),
+        onPressed: () => menuController.isOpen
+            ? menuController.close()
+            : menuController.open(),
       ),
       menuChildren: [
         MenuItemButton(
-          leadingIcon: Icon(Icons.format_list_bulleted, color: isDark ? Colors.white : colorScheme.onSurfaceVariant),
+          leadingIcon: Icon(
+            Icons.format_list_bulleted,
+            color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
+          ),
           onPressed: () => _toggleListAttribute(Attribute.ul),
           child: const Text('Bullets'),
         ),
         MenuItemButton(
-          leadingIcon: Icon(Icons.format_list_numbered, color: isDark ? Colors.white : colorScheme.onSurfaceVariant),
+          leadingIcon: Icon(
+            Icons.format_list_numbered,
+            color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
+          ),
           onPressed: () => _toggleListAttribute(Attribute.ol),
           child: const Text('Numbers'),
         ),
@@ -261,7 +318,10 @@ class NoteToolbar extends StatelessWidget {
     if (attrs.containsKey('size')) {
       currentSize = double.tryParse(attrs['size']!.value.toString()) ?? 16.0;
     }
-    final newSize = (increase ? currentSize + 15 : currentSize - 15).clamp(15.0, 100.0);
+    final newSize = (increase ? currentSize + 15 : currentSize - 15).clamp(
+      15.0,
+      100.0,
+    );
     final sizeAttr = Attribute.fromKeyValue('size', newSize);
     if (controller.selection.isCollapsed) {
       controller.formatSelection(sizeAttr);
@@ -275,9 +335,64 @@ class NoteToolbar extends StatelessWidget {
     focusNode.requestFocus();
   }
 
-  void _toggleListAttribute(Attribute attribute) {
-    final isAlreadySelected = controller.getSelectionStyle().attributes[attribute.key]?.value == attribute.value;
-    controller.formatSelection(isAlreadySelected ? Attribute.clone(attribute, null) : attribute);
-    focusNode.requestFocus();
+
+void _toggleListAttribute(Attribute attribute) {
+  focusNode.requestFocus();
+
+  final selection = controller.selection;
+  final style = controller.getSelectionStyle();
+  final currentList = style.attributes['list'];
+
+  // 1. STANDARD BEHAVIOR: If the user manually highlighted multiple lines, 
+  // respect their exact selection.
+  if (!selection.isCollapsed) {
+    if (currentList?.value == attribute.value) {
+      controller.formatSelection(Attribute.clone(Attribute.list, null));
+    } else {
+      controller.formatSelection(attribute);
+    }
+    return;
   }
+
+  // 2. THE LEGENDARY FIX: Target the entire connected block
+  final offset = selection.baseOffset;
+  
+  // Grab the current line node based on the cursor position
+  final line = controller.document.queryChild(offset).node;
+
+  // In flutter_quill, list items are wrapped in a parent 'Block' container
+  if (line != null && line.parent != null) {
+    final parent = line.parent!;
+
+    // Check if the parent is a list block. If it is, we found our boundaries!
+    if (parent.style.attributes.containsKey('list')) {
+      final blockStart = parent.documentOffset;
+      final blockLength = parent.length ; //parent.length - 1;
+
+      if (currentList?.value == attribute.value) {
+        // Toggle OFF: Remove the list formatting from the entire block
+        controller.formatText(
+          blockStart, 
+          blockLength, 
+          Attribute.clone(Attribute.list, null)
+        );
+      } else {
+        // Toggle ON / SWITCH: Apply the new list type (e.g. bullets to numbers) 
+        // to the entire block at once
+        controller.formatText(blockStart, blockLength, attribute);
+      }
+
+      // Re-apply the cursor position so it doesn't jump around
+      controller.updateSelection(selection, ChangeSource.local);
+      return;
+    }
+  }
+
+  // 3. FALLBACK: If we are creating a brand new list (not currently in a block)
+  if (currentList?.value == attribute.value) {
+    controller.formatSelection(Attribute.clone(Attribute.list, null));
+  } else {
+    controller.formatSelection(attribute);
+  }
+}
 }

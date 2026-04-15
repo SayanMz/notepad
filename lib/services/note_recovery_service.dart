@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class NoteRecoveryService {
   static const String _prefix = 'shadow_';
+  static const String draftKey = 'new_note';
 
   /// Logic: Saves the 'Dirty Draft' as a List [Title, Content]
   Future<void> saveShadowDraft(String noteId, List<String> draftData) async {
@@ -24,7 +25,7 @@ class NoteRecoveryService {
 
   /// FIX: Changed return type to List<String>? to match your Home Page
   Future<List<String>?> checkAndRecoverCrashData(List<NotesSection> activeNotes) async {
-    final idForRecovery = 'new_note';
+    final idForRecovery = draftKey;
     
     // 1. Fetch the shadow draft list
     final shadowData = await getShadowDraft(idForRecovery);

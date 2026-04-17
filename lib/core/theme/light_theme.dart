@@ -38,7 +38,8 @@ class LightTheme {
 
     /// AppBar
     appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.lightScaffold,
+      backgroundColor: AppColors.lightAppBar,
+      foregroundColor: Colors.black,
     ),
 
     /// Material 3 Color System

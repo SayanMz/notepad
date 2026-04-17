@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:notepad/core/constants/ui_constants.dart';
+import 'package:notepad/core/theme/app_colors.dart';
 import 'package:notepad/features/note/data/note_repository.dart';
 import 'package:notepad/features/note/services/note_document_service.dart';
 import 'package:notepad/features/note/services/note_recovery_service.dart';
@@ -277,9 +278,9 @@ class _HomePageState extends State<HomePage> {
     messenger?.clearSnackBars();
 
     messenger?.showSnackBar(
-        SnackBar(
-          key: UniqueKey(),
-          duration: UIConstants.saveIndicatorDuration,
+      SnackBar(
+        key: UniqueKey(),
+        duration: UIConstants.saveIndicatorDuration,
         content: Text(
           '$movedCount ${movedCount == 1 ? 'note' : 'notes'} moved to recycle bin',
         ),
@@ -330,7 +331,7 @@ class _HomePageState extends State<HomePage> {
       },
 
       child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: AppColors.lightScaffold,
 
         /// AppBar is isolated widget (better performance)
         appBar: HomeAppBar(
@@ -361,26 +362,26 @@ class _HomePageState extends State<HomePage> {
             : ValueListenableBuilder<bool>(
                 valueListenable: _isFabVisible,
                 builder: (context, isVisible, child) {
-                    return AnimatedScale(
-                      scale: isVisible ? 1.0 : 0.0,
-                      duration: UIConstants.animationFast,
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: UIConstants.paddingXLarge,
-                        ),
-                        child: OpenContainer(
-                          transitionType: ContainerTransitionType.fade,
-                          transitionDuration: UIConstants.animationExtraSlow,
-                          openColor: Theme.of(context).scaffoldBackgroundColor,
+                  return AnimatedScale(
+                    scale: isVisible ? 1.0 : 0.0,
+                    duration: UIConstants.animationFast,
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        bottom: UIConstants.paddingXS,
+                      ),
+                      child: OpenContainer(
+                        transitionType: ContainerTransitionType.fade,
+                        transitionDuration: UIConstants.animationExtraSlow,
+                        openColor: Theme.of(context).scaffoldBackgroundColor,
                         closedColor: Theme.of(
                           context,
                         ).colorScheme.primaryContainer,
-                          closedElevation: UIConstants.elevationHigh,
-                          closedShape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.all(
-                              Radius.circular(UIConstants.radiusLG),
-                            ),
+                        closedElevation: UIConstants.elevationHigh,
+                        closedShape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.all(
+                            Radius.circular(UIConstants.radiusLG),
                           ),
+                        ),
                         // This builds the FAB in its "closed" state
                         closedBuilder: (context, openContainer) =>
                             FloatingActionButton.extended(

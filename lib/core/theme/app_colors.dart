@@ -18,7 +18,10 @@ class AppColors {
   static const tealDark = Color(0xFF0D9488);
 
   // Light theme backgrounds
-  static const lightScaffold = Color(0xFFF0FDF4);
+  // Separate tokens let the page body and AppBar be tuned independently.
+  static const lightScaffold = Color(0xFFFAFAF7);
+  // Soft teal tint for AppBars in light mode.
+  static const lightAppBar = Color(0xFFE9F8F6);
 
   // Dark theme backgrounds (AMOLED optimized)
   static const darkScaffold = Color(0xFF09090B);
@@ -39,13 +42,13 @@ class AppColors {
   static const lightText = Colors.black;
   static const darkText = Color(0xFFF4F4F5);
 
-///For Dismissible widget - 
-///Light and dark theme
-// Background
-static const deleteLightBg = Color(0xFFFEE2E2); // soft red (Tailwind-like)
-static const deleteDarkBg = Color(0xFF3F1D1D); // muted deep red
-// Icon / Accent
+  ///For Dismissible widget -
+  ///Light and dark theme
+  // Background
+  static const deleteLightBg = Color(0xFFFEE2E2); // soft red (Tailwind-like)
+  static const deleteDarkBg = Color(0xFF3F1D1D); // muted deep red
+  // Icon / Accent
 
-static const deleteLightIcon = Color(0xFFDC2626); // strong red
-static const deleteDarkIcon = Color(0xFFFF6B6B); // bright contrast red
+  static const deleteLightIcon = Color(0xFFDC2626); // strong red
+  static const deleteDarkIcon = Color(0xFFFF6B6B); // bright contrast red
 }

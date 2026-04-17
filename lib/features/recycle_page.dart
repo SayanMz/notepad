@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
 import 'package:notepad/core/constants/ui_constants.dart';
 import 'package:notepad/core/data/app_data.dart';
+import 'package:notepad/core/theme/app_colors.dart';
 import 'package:notepad/features/note/data/note_repository.dart';
 
 class RecyclePage extends StatefulWidget {
@@ -90,7 +91,9 @@ class _RecyclePageState extends State<RecyclePage> {
         final deletedNotes = noteRepository.deletedNotes;
 
         return Scaffold(
-          backgroundColor: isDark ? Color(0xFF09090B) : const Color(0xFFF8F9FA),
+          backgroundColor: isDark
+              ? AppColors.darkScaffold
+              : AppColors.lightScaffold,
           appBar: AppBar(
             leading: BackButton(
               //color: isDark ? Colors.white : Colors.black ,
@@ -135,7 +138,9 @@ class _RecyclePageState extends State<RecyclePage> {
                       key: ValueKey('restore_${note.id}'),
                       direction: DismissDirection.endToStart,
                       background: Container(
-                        margin: const EdgeInsets.all(UIConstants.recycleCardMargin),
+                        margin: const EdgeInsets.all(
+                          UIConstants.recycleCardMargin,
+                        ),
                         decoration: BoxDecoration(
                           color: isDark
                               ? Colors.green.withValues(alpha: 0.2)
@@ -173,7 +178,9 @@ class _RecyclePageState extends State<RecyclePage> {
                       },
                       child: Card(
                         elevation: UIConstants.elevationLow,
-                        margin: const EdgeInsets.all(UIConstants.recycleCardMargin),
+                        margin: const EdgeInsets.all(
+                          UIConstants.recycleCardMargin,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(
                             UIConstants.recycleCardRadius,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:notepad/core/constants/ui_constants.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class NoteEditor extends StatefulWidget {
   const NoteEditor({
@@ -25,7 +26,13 @@ class _NoteEditorState extends State<NoteEditor> {
       controller: widget.controller,
       focusNode: widget.focusNode,
       scrollController: widget.scrollController,
-      config: const QuillEditorConfig(
+      config: QuillEditorConfig(
+        onLaunchUrl: (String url) async {
+          final uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        },
         expands: true,
         padding: EdgeInsets.symmetric(
           horizontal: UIConstants.editorHorizontalPadding,

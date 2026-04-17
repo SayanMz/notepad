@@ -37,7 +37,7 @@ class NoteHeader extends StatelessWidget {
                   ),
                   decoration: const InputDecoration(
                     hintText: 'Title',
-                    hintStyle: TextStyle(color: Colors.black54),
+                    hintStyle: TextStyle(color: Colors.grey),
                     border: InputBorder.none,
                     focusedBorder: InputBorder.none,
                   ),
@@ -60,7 +60,9 @@ class NoteHeader extends StatelessWidget {
         // Restored original centered half-divider
         Center(
           child: SizedBox(
-            width: MediaQuery.of(context).size.width * UIConstants.headerWidthRatio,
+            width:
+                MediaQuery.of(context).size.width *
+                UIConstants.headerWidthRatio,
             child: Divider(
               thickness: UIConstants.headerUnderlineThickness,
               color: colorScheme.primary.withValues(alpha: 0.6),

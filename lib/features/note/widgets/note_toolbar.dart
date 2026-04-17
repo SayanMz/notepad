@@ -8,17 +8,17 @@ class NoteToolbar extends StatelessWidget {
     super.key,
     required this.controller,
     required this.focusNode,
-    required this.onConvertToLink,
+    //required this.onConvertToLink,
   });
 
   final QuillController controller;
   final FocusNode focusNode;
-  final Future<void> Function() onConvertToLink;
+  //final Future<void> Function() onConvertToLink;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colorScheme = Theme.of(context).colorScheme;
+    // final isDark = Theme.of(context).brightness == Brightness.dark;
+    // final colorScheme = Theme.of(context).colorScheme;
 
     // Restored: Returning a Column containing TWO separate glass toolbars
     return Column(
@@ -31,19 +31,24 @@ class NoteToolbar extends StatelessWidget {
             Icons.format_underlined,
             Attribute.underline,
           ),
-          _buildRawAlignmentMenu(context, controller),
+          _buildRawToggle(
+            context,
+            Icons.format_strikethrough,
+            Attribute.strikeThrough,
+          ),
         ]),
         _buildRawGlassToolbar(context, [
           _buildRawSizeMenu(context),
           _buildRawColorMenu(context),
           _buildRawListMenu(context),
-          IconButton(
-            icon: Icon(
-              Icons.link,
-              color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
-            ),
-            onPressed: onConvertToLink,
-          ),
+          _buildRawAlignmentMenu(context, controller),
+          // IconButton(
+          //   icon: Icon(
+          //     Icons.link,
+          //     color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
+          //   ),
+          //   onPressed: onConvertToLink,
+          // ),
         ]),
         const SizedBox(height: UIConstants.paddingM),
       ],
@@ -127,163 +132,6 @@ class NoteToolbar extends StatelessWidget {
           },
         );
       },
-    );
-  }
-
-  // Widget _buildRawAlignmentMenu(
-  //   BuildContext context,
-  //   QuillController controller,
-  // ) {
-  //   final isDark = Theme.of(context).brightness == Brightness.dark;
-  //   final colorScheme = Theme.of(context).colorScheme;
-  //   bool isSelected = false;
-
-  //   return ListenableBuilder(
-  //     listenable: controller,
-  //     builder: (context,  child) {
-  //       final currentAlign = controller.getSelectionStyle().attributes[Attribute.align.key]?.value;
-
-  //       return MenuAnchor(
-  //         builder: (context, menuController, child) {
-
-  //           return IconButton(
-  //             icon: Icon(
-  //               Icons.format_align_justify,
-  //               color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
-  //             ),
-  //             onPressed: () => menuController.isOpen
-  //                 ? menuController.close()
-  //                 : menuController.open(),
-  //           );
-  //         },
-  //         menuChildren: [
-  //           MenuItemButton(
-  //             leadingIcon: Icon(
-  //               Icons.format_align_left,
-  //               color: isSelected == Attribute.leftAlignment ? isDark? colors.amber : Colors.teal,
-  //               //isDark ? Colors.white : colorScheme.onSurfaceVariant,
-  //             ),
-  //             onPressed: () {
-  //             isSelected = currentAlign == value;
-  //             controller.formatSelection(Attribute.leftAlignment),
-  //             },
-  //             child: const Text('Left'),
-  //           ),
-  //           MenuItemButton(
-  //             leadingIcon: Icon(
-  //               Icons.format_align_center,
-  //               color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
-  //             ),
-  //             onPressed: () =>
-  //                 controller.formatSelection(Attribute.centerAlignment),
-  //             child: const Text('Center'),
-  //           ),
-  //           MenuItemButton(
-  //             leadingIcon: Icon(
-  //               Icons.format_align_right,
-  //               color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
-  //             ),
-  //             onPressed: () => controller.formatSelection(Attribute.rightAlignment),
-  //             child: const Text('Right'),
-  //           ),
-  //         ],
-  //       );
-  //     }
-  //   );
-
-  Widget _buildRawAlignmentMenu(
-    BuildContext context,
-    QuillController controller,
-  ) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    // 1. Wrap in ListenableBuilder so the colors update when the cursor moves
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, child) {
-        // 2. Get the current alignment value safely
-        final currentAlign = controller
-            .getSelectionStyle()
-            .attributes[Attribute.align.key]
-            ?.value;
-
-        return MenuAnchor(
-          builder: (context, menuController, child) => IconButton(
-            icon: Icon(
-              Icons.format_align_justify,
-              // The main button highlights when the menu is open
-              color: menuController.isOpen
-                  ? Colors.blueAccent
-                  : (isDark ? Colors.white : colorScheme.onSurfaceVariant),
-            ),
-            onPressed: () => menuController.isOpen
-                ? menuController.close()
-                : menuController.open(),
-          ),
-          menuChildren: [
-            _buildAlignmentItem(
-              context,
-              Icons.format_align_left,
-              'left',
-              'Left',
-              isDark,
-              currentAlign,
-            ),
-            _buildAlignmentItem(
-              context,
-              Icons.format_align_center,
-              'center',
-              'Center',
-              isDark,
-              currentAlign,
-            ),
-            _buildAlignmentItem(
-              context,
-              Icons.format_align_right,
-              'right',
-              'Right',
-              isDark,
-              currentAlign,
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // 3. Helper to build each sub-button with your specific Amber/Teal colors
-  Widget _buildAlignmentItem(
-    BuildContext context,
-    IconData icon,
-    String value,
-    String label,
-    bool isDark,
-    dynamic currentAlign,
-  ) {
-    // Check if this specific button is the active one
-    final isSelected = currentAlign == value;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    // Use your requested colors from the screenshot: Amber for Dark mode, Teal for Light
-    final activeColor = colorScheme.primary;
-    final defaultColor = isDark
-        ? Colors.white
-        : Theme.of(context).colorScheme.onSurfaceVariant;
-
-    return MenuItemButton(
-      leadingIcon: Icon(icon, color: isSelected ? activeColor : defaultColor),
-      onPressed: () => controller.formatSelection(
-        value == 'left'
-            ? Attribute.leftAlignment
-            : value == 'center'
-            ? Attribute.centerAlignment
-            : Attribute.rightAlignment,
-      ),
-      child: Text(
-        label,
-        style: TextStyle(color: isSelected ? activeColor : defaultColor),
-      ),
     );
   }
 
@@ -405,40 +253,6 @@ class NoteToolbar extends StatelessWidget {
     );
   }
 
-  // Widget _buildRawListMenu(BuildContext context) {
-  //   final colorScheme = Theme.of(context).colorScheme;
-  //   final isDark = Theme.of(context).brightness == Brightness.dark;
-  //   return MenuAnchor(
-  //     builder: (context, menuController, child) => IconButton(
-  //       icon: Icon(
-  //         Icons.format_list_bulleted,
-  //         color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
-  //       ),
-  //       onPressed: () => menuController.isOpen
-  //           ? menuController.close()
-  //           : menuController.open(),
-  //     ),
-  //     menuChildren: [
-  //       MenuItemButton(
-  //         leadingIcon: Icon(
-  //           Icons.format_list_bulleted,
-  //           color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
-  //         ),
-  //         onPressed: () => _toggleListAttribute(Attribute.ul),
-  //         child: const Text('Bullets'),
-  //       ),
-  //       MenuItemButton(
-  //         leadingIcon: Icon(
-  //           Icons.format_list_numbered,
-  //           color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
-  //         ),
-  //         onPressed: () => _toggleListAttribute(Attribute.ol),
-  //         child: const Text('Numbers'),
-  //       ),
-  //     ],
-  //   );
-  // }
-
   Widget _buildRawListMenu(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
@@ -452,11 +266,13 @@ class NoteToolbar extends StatelessWidget {
             .attributes['list']
             ?.value;
 
+        final bool isListActive = currentList != null;
+
         return MenuAnchor(
           builder: (context, menuController, child) => IconButton(
             icon: Icon(
               Icons.format_list_bulleted,
-              color: menuController.isOpen
+              color: (menuController.isOpen || isListActive)
                   ? Colors.blueAccent
                   : (isDark ? Colors.white : colorScheme.onSurfaceVariant),
             ),
@@ -530,9 +346,9 @@ class NoteToolbar extends StatelessWidget {
     if (attrs.containsKey('size')) {
       currentSize = double.tryParse(attrs['size']!.value.toString()) ?? 16.0;
     }
-    final newSize = (increase ? currentSize + 15 : currentSize - 15).clamp(
+    final newSize = (increase ? currentSize + 5 : currentSize - 5).clamp(
       15.0,
-      100.0,
+      80.0,
     );
     final sizeAttr = Attribute.fromKeyValue('size', newSize);
     if (controller.selection.isCollapsed) {
@@ -554,8 +370,7 @@ class NoteToolbar extends StatelessWidget {
     final style = controller.getSelectionStyle();
     final currentList = style.attributes['list'];
 
-    // 1. STANDARD BEHAVIOR: If the user manually highlighted multiple lines,
-    // respect their exact selection.
+    //  STANDARD BEHAVIOR
     if (!selection.isCollapsed) {
       if (currentList?.value == attribute.value) {
         controller.formatSelection(Attribute.clone(Attribute.list, null));
@@ -565,45 +380,127 @@ class NoteToolbar extends StatelessWidget {
       return;
     }
 
-    // 2. THE LEGENDARY FIX: Target the entire connected block
     final offset = selection.baseOffset;
-
-    // Grab the current line node based on the cursor position
     final line = controller.document.queryChild(offset).node;
 
-    // In flutter_quill, list items are wrapped in a parent 'Block' container
     if (line != null && line.parent != null) {
       final parent = line.parent!;
 
-      // Check if the parent is a list block. If it is, we found our boundaries!
       if (parent.style.attributes.containsKey('list')) {
         final blockStart = parent.documentOffset;
-        final blockLength = parent.length; //parent.length - 1;
+        final blockLength = parent.length;
 
         if (currentList?.value == attribute.value) {
-          // Toggle OFF: Remove the list formatting from the entire block
+          // Toggle OFF: Remove formatting from the document row
           controller.formatText(
-            blockStart,
-            blockLength,
+            line.documentOffset,
+            line.length,
             Attribute.clone(Attribute.list, null),
           );
+
+          controller.formatSelection(Attribute.clone(Attribute.list, null));
         } else {
-          // Toggle ON / SWITCH: Apply the new list type (e.g. bullets to numbers)
-          // to the entire block at once
+          // Toggle ON / SWITCH: Apply new list type to the entire document block
           controller.formatText(blockStart, blockLength, attribute);
+
+          controller.formatSelection(attribute);
         }
 
-        // Re-apply the cursor position so it doesn't jump around
-        controller.updateSelection(selection, ChangeSource.local);
-        return;
+        return; // updateSelection is no longer needed, formatSelection handles it
       }
     }
 
-    // 3. FALLBACK: If we are creating a brand new list (not currently in a block)
+    // 3. FALLBACK
     if (currentList?.value == attribute.value) {
       controller.formatSelection(Attribute.clone(Attribute.list, null));
     } else {
       controller.formatSelection(attribute);
     }
+  }
+
+  Widget _buildRawAlignmentMenu(
+    BuildContext context,
+    QuillController controller,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, child) {
+        final currentAlign = controller
+            .getSelectionStyle()
+            .attributes[Attribute.align.key]
+            ?.value;
+
+        return MenuAnchor(
+          builder: (context, menuController, child) => IconButton(
+            icon: const Icon(
+              Icons.format_align_justify,
+              color: Colors.blueAccent, // ALWAYS blue, as requested
+            ),
+            onPressed: () => menuController.isOpen
+                ? menuController.close()
+                : menuController.open(),
+          ),
+          menuChildren: [
+            _buildAlignmentItem(
+              context,
+              Icons.format_align_left,
+              'left',
+              'Left',
+              isDark,
+              currentAlign,
+            ),
+            _buildAlignmentItem(
+              context,
+              Icons.format_align_center,
+              'center',
+              'Center',
+              isDark,
+              currentAlign,
+            ),
+            _buildAlignmentItem(
+              context,
+              Icons.format_align_right,
+              'right',
+              'Right',
+              isDark,
+              currentAlign,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildAlignmentItem(
+    BuildContext context,
+    IconData icon,
+    String value,
+    String label,
+    bool isDark,
+    dynamic currentAlign,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final bool isSelected =
+        (currentAlign == value) || (currentAlign == null && value == 'left');
+
+    final activeColor = colorScheme.primary;
+    final defaultColor = isDark
+        ? Colors.white
+        : Theme.of(context).colorScheme.onSurfaceVariant;
+
+    return MenuItemButton(
+      leadingIcon: Icon(icon, color: isSelected ? activeColor : defaultColor),
+      onPressed: () => controller.formatSelection(
+        value == 'left'
+            ? Attribute.leftAlignment
+            : value == 'center'
+            ? Attribute.centerAlignment
+            : Attribute.rightAlignment,
+      ),
+      child: Text(label),
+    );
   }
 }

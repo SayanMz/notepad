@@ -331,7 +331,9 @@ class _HomePageState extends State<HomePage> {
       },
 
       child: Scaffold(
-        backgroundColor: AppColors.lightScaffold,
+        backgroundColor: isDark
+            ? AppColors.darkScaffold
+            : AppColors.lightScaffold,
 
         /// AppBar is isolated widget (better performance)
         appBar: HomeAppBar(

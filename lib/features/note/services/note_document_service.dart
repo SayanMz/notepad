@@ -34,12 +34,18 @@ class NoteDocumentService {
     pdf.addPage(
       pw.MultiPage(
         build: (context) => [
-          pw.Text(
-            title.trim().isEmpty ? 'Untitled note' : title.trim(),
-            style: pw.TextStyle(
-              font: fontBold,
-              fontFallback: emojiFont != null ? [emojiFont] : const [],
-              fontSize: 24,
+          // FIX: Added Container with center alignment
+          pw.Container(
+            width: double.infinity,
+            alignment: pw.Alignment.center,
+            child: pw.Text(
+              title.trim().isEmpty ? 'Untitled note' : title.trim(),
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(
+                font: fontBold,
+                fontFallback: emojiFont != null ? [emojiFont] : const [],
+                fontSize: 24,
+              ),
             ),
           ),
           pw.SizedBox(height: 20),
@@ -56,6 +62,7 @@ class NoteDocumentService {
         ],
       ),
     );
+
     stopwatch.stop();
     debugPrint('📄 PDF Rendering Time: ${stopwatch.elapsedMilliseconds}ms');
 
@@ -143,12 +150,24 @@ class NoteDocumentService {
       if (isOrdered)
         pw.TextSpan(
           text: '$orderedListIndex. ',
-          style: pw.TextStyle(font: fontReg, fontSize: fontSize),
+          style: pw.TextStyle(
+            font: fontReg,
+            fontSize: fontSize,
+            fontFallback: emojiFont != null
+                ? [emojiFont]
+                : const [], // Added fallback
+          ),
         ),
       if (isChecked || isUnchecked)
         pw.TextSpan(
           text: isChecked ? '[x] ' : '[ ] ',
-          style: pw.TextStyle(font: fontBold, fontSize: fontSize),
+          style: pw.TextStyle(
+            font: fontBold,
+            fontSize: fontSize,
+            fontFallback: emojiFont != null
+                ? [emojiFont]
+                : const [], // Added fallback
+          ),
         ),
       ...spanChildren,
     ];
@@ -177,7 +196,13 @@ class NoteDocumentService {
             )
           : null,
       child: pw.RichText(
-        text: pw.TextSpan(children: textChildren),
+        text: pw.TextSpan(
+          // FIX: Provide the fallback to the root span!
+          style: pw.TextStyle(
+            fontFallback: emojiFont != null ? [emojiFont] : const [],
+          ),
+          children: textChildren,
+        ),
         textAlign: textAlign,
         overflow: pw.TextOverflow.span,
       ),

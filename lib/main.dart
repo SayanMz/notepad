@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
-import 'package:notepad/data/app_settings_repository.dart';
-import 'package:notepad/data/note_repository.dart';
-import 'package:notepad/views/home/home_page.dart';
-import 'package:notepad/theme/app_theme.dart';
+import 'package:notepad/core/data/app_settings_repository.dart';
+import 'package:notepad/features/note/data/note_repository.dart';
+import 'package:notepad/core/theme/app_theme.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:notepad/core/data/app_data.dart';
+import 'package:notepad/features/home/home_page.dart';
 
 /// ---------------------------------------------------------------------------
 /// GLOBAL APPLICATION UTILITIES
@@ -20,6 +22,7 @@ import 'package:notepad/theme/app_theme.dart';
 /// ARCHITECTURAL NOTE:
 /// - This introduces a controlled global dependency for UI feedback.
 /// - Acceptable for cross-cutting concerns, but should be used sparingly.
+
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
@@ -27,10 +30,22 @@ final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
 /// APPLICATION ENTRY POINT
 /// ---------------------------------------------------------------------------
 
-void main() {
+Future<void> main() async {
   /// Bootstraps the Flutter application.
-  ///
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+
+  Hive.registerAdapter(NotesSectionAdapter());
+  Hive.registerAdapter(AppSettingsAdapter());
+
+  await Hive.openBox<NotesSection>('notes_box');
+  await Hive.openBox<AppSettings>('settings_box');
+
   /// This is the first executed function and injects the root widget.
+  await Future.wait([
+    noteRepository.init(), // Handles seed notes + loading
+    appSettingsRepository.load(), // Ensures dark/light mode is ready
+  ]);
   runApp(const MyApp());
 }
 
@@ -47,65 +62,9 @@ void main() {
 /// RESPONSIBILITIES:
 /// - App lifecycle initialization
 /// - Global configuration (themes, localization, routing)
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-/// Internal state for MyApp.
-///
-/// Manages:
-/// - Data hydration from repositories
-/// - Triggering UI readiness after async operations
-class _MyAppState extends State<MyApp> {
-  @override
-  void initState() {
-    super.initState();
-
-    /// Initiates app data loading immediately on startup.
-    ///
-    /// Ensures:
-    /// - Notes and settings are available before full UI interaction
-    _initData();
-  }
-
-  /// -------------------------------------------------------------------------
-  /// DATA INITIALIZATION
-  /// -------------------------------------------------------------------------
-  ///
-  /// PURPOSE:
-  /// Loads persisted data (notes + app settings) from local storage.
-  ///
-  /// PERFORMANCE:
-  /// - Uses Future.wait() to execute both operations concurrently
-  /// - Reduces total startup time compared to sequential loading
-  ///
-  /// SAFETY:
-  /// - Uses `mounted` check to avoid calling setState on disposed widget
-  void _initData() async {
-    await Future.wait([noteRepository.load(), appSettingsRepository.load()]);
-
-    if (!mounted) {
-      return;
-    }
-
-    /// Triggers UI rebuild after data is ready.
-    ///
-    /// EFFECT:
-    /// - Rebuilds MaterialApp with fully loaded repositories
-    setState(() {});
-  }
-
-  /// -------------------------------------------------------------------------
-  /// BUILD METHOD
-  /// -------------------------------------------------------------------------
-  ///
-  /// Defines:
-  /// - Reactive theme switching
-  /// - Root MaterialApp configuration
-  /// - Localization setup
   @override
   Widget build(BuildContext context) {
     /// -----------------------------------------------------------------------
@@ -175,6 +134,15 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
+
+/// -------------------------------------------------------------------------
+/// BUILD METHOD
+/// -------------------------------------------------------------------------
+///
+/// Defines:
+/// - Reactive theme switching
+/// - Root MaterialApp configuration
+/// - Localization setup
 
 /*
 📌 Interview Framing Tip:

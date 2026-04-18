@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:notepad/core/constants/ui_constants.dart';
 import 'app_colors.dart';
 
 /// ---------------------------------------------------------------------------
@@ -66,6 +67,21 @@ class LightTheme {
       foregroundColor: Colors.white,
       elevation: 2,
       highlightElevation: 4,
+    ),
+
+    /// SnackBars
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: const Color(0xFF2F3439),
+      contentTextStyle: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w500,
+      ),
+      actionTextColor: AppColors.teal,
+      elevation: UIConstants.elevationLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(UIConstants.radiusLG),
+      ),
     ),
   );
 }

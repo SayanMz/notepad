@@ -24,9 +24,9 @@ class NotesSection {
     this.isDeleted = false,
     this.isSelected = false,
     this.isPinned = false,
-  })  : id = id ?? generateNoteId(),
-        createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? createdAt ?? DateTime.now();
+  }) : id = id ?? generateNoteId(),
+       createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? createdAt ?? DateTime.now();
 
   @HiveField(0)
   final String id;
@@ -55,39 +55,40 @@ class NotesSection {
   /// UI-only selection state used by bulk actions.
   bool isSelected;
 
+  ///For Cloud Sync and JSON Export
   /// Serializes the note for local storage and export flows.
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'content': content,
-        'richContent': richContent,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-        'isDeleted': isDeleted,
-        'isPinned': isPinned,
-      };
+  // Map<String, dynamic> toJson() => {
+  //       'id': id,
+  //       'title': title,
+  //       'content': content,
+  //       'richContent': richContent,
+  //       'createdAt': createdAt.toIso8601String(),
+  //       'updatedAt': updatedAt.toIso8601String(),
+  //       'isDeleted': isDeleted,
+  //       'isPinned': isPinned,
+  //     };
 
   /// Rebuilds a note from stored JSON and keeps older data compatible.
-  factory NotesSection.fromJson(Map<String, dynamic> json) => NotesSection(
-        id: json['id'] as String?,
-        title: (json['title'] ?? '') as String,
-        content: (json['content'] ?? '') as String,
-        richContent: (json['richContent'] ?? '') as String,
-        createdAt: _parseDateTime(json['createdAt']),
-        updatedAt: _parseDateTime(json['updatedAt']) ??
-            _parseDateTime(json['createdAt']),
-        isDeleted: json['isDeleted'] ?? false,
-        isPinned: json['isPinned'] ?? false,
-      );
+  // factory NotesSection.fromJson(Map<String, dynamic> json) => NotesSection(
+  //       id: json['id'] as String?,
+  //       title: (json['title'] ?? '') as String,
+  //       content: (json['content'] ?? '') as String,
+  //       richContent: (json['richContent'] ?? '') as String,
+  //       createdAt: _parseDateTime(json['createdAt']),
+  //       updatedAt: _parseDateTime(json['updatedAt']) ??
+  //           _parseDateTime(json['createdAt']),
+  //       isDeleted: json['isDeleted'] ?? false,
+  //       isPinned: json['isPinned'] ?? false,
+  //     );
 }
 
 /// Converts a stored date string into `DateTime?`.
-DateTime? _parseDateTime(Object? value) {
-  if (value is! String || value.isEmpty) {
-    return null;
-  }
-  return DateTime.tryParse(value);
-}
+// DateTime? _parseDateTime(Object? value) {
+//   if (value is! String || value.isEmpty) {
+//     return null;
+//   }
+//   return DateTime.tryParse(value);
+// }
 
 /// Stores app-level preferences such as theme mode.
 @HiveType(typeId: 1)

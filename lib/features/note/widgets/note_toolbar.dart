@@ -17,10 +17,6 @@ class NoteToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // final isDark = Theme.of(context).brightness == Brightness.dark;
-    // final colorScheme = Theme.of(context).colorScheme;
-
-    // Restored: Returning a Column containing TWO separate glass toolbars
     return Column(
       children: [
         _buildRawGlassToolbar(context, [
@@ -186,6 +182,8 @@ class NoteToolbar extends StatelessWidget {
   }
 
   Widget _buildRawColorMenu(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return MenuAnchor(
       alignmentOffset: const Offset(-UIConstants.toolbarColorMenuOffsetX, 0),
       builder: (context, menuController, child) => IconButton(
@@ -200,30 +198,36 @@ class NoteToolbar extends StatelessWidget {
           child: Wrap(
             alignment: WrapAlignment.center,
             children: [
-              Colors.black,
-              Colors.red,
-              Colors.blue,
-              Colors.green,
-              Colors.orange,
-              Colors.purple,
-            ].map((color) => _buildColorCircle(color)).toList(),
+              _buildColorCircle(
+                isDark ? Colors.white : Colors.black,
+                isDefault: true,
+              ),
+              _buildColorCircle(Colors.red),
+              _buildColorCircle(Colors.blue),
+              _buildColorCircle(Colors.green),
+              _buildColorCircle(Colors.orange),
+              _buildColorCircle(Colors.purple),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildColorCircle(Color color) {
+  Widget _buildColorCircle(Color color, {bool isDefault = false}) {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, child) {
         final hexString = '#${color.toARGB32().toRadixString(16).substring(2)}';
-        final bool isSelected =
-            controller.getSelectionStyle().attributes['color']?.value ==
-            hexString;
+        final bool isSelected = isDefault
+            ? controller.getSelectionStyle().attributes['color'] == null
+            : controller.getSelectionStyle().attributes['color']?.value ==
+                  hexString;
         return GestureDetector(
           onTap: () {
-            final colorAttr = ColorAttribute(hexString);
+            final colorAttr = isDefault
+                ? Attribute.fromKeyValue('color', null)
+                : ColorAttribute(hexString);
             if (controller.selection.isCollapsed) {
               controller.formatSelection(colorAttr);
             } else {

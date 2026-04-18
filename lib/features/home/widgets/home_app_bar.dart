@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:notepad/core/constants/ui_constants.dart';
 import 'package:notepad/core/data/app_settings_repository.dart';
-import 'package:notepad/features/note/data/note_repository.dart';
 import 'package:notepad/main.dart';
 import 'package:notepad/features/recycle_page.dart';
 import 'package:notepad/features/search_page.dart';
@@ -79,11 +78,7 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
             color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
           ),
           onPressed: () async {
-            await noteRepository.persist();
-            if (!context.mounted) return;
-
             rootScaffoldMessengerKey.currentState?.clearSnackBars();
-
             await Navigator.push(context, fadeRoute(const SearchPage()));
           },
         ),
@@ -96,9 +91,6 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
             color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
           ),
           onPressed: () async {
-            await noteRepository.persist();
-            if (!context.mounted) return;
-
             rootScaffoldMessengerKey.currentState?.clearSnackBars();
 
             await Navigator.push(context, fadeRoute(const RecyclePage()));

@@ -199,8 +199,8 @@ class _NotePageState extends State<NotePage> {
 
     return PopScope(
       /// Save note when navigating back
-      onPopInvokedWithResult: (didPop, result) async {
-        await _noteController.saveNote(
+      onPopInvokedWithResult: (didPop, result) {
+        _noteController.saveAndCleanupOnClose(
           title: titleController.text,
           document: contentController.document,
         );
@@ -307,7 +307,7 @@ class _NotePageState extends State<NotePage> {
   }
 
   // -------------------------------------------------------------------------
-  // HYPERLINK FEATURE
+  // HYPERLINK FEATURE -- DISABLED
   // -------------------------------------------------------------------------
   ///
   /// Converts selected text into a clickable hyperlink.

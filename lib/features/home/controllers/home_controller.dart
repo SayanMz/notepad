@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:notepad/core/constants/ui_constants.dart';
 import 'package:notepad/core/data/app_data.dart';
@@ -81,7 +79,6 @@ class HomeController {
   /// - Keeps UI responsive and consistent
   Future<void> togglePin(String noteId) async {
     noteRepository.togglePin(noteId);
-    await noteRepository.persist();
   }
 
   /// Shares selected notes as HTML.
@@ -112,43 +109,39 @@ class HomeController {
   /// UX PATTERN:
   /// - Performs soft delete (recoverable)
   /// - Shows Snackbar with restore option
-  Future<void> deleteSelected(BuildContext context) async {
-    final selectedNotes = noteRepository.selectedNotes;
+  Future<void> deleteSelected(List<NotesSection> notes) async {
+    final selectedNotes = notes;
+    final selectedCount = selectedNotes.length;
 
-    if (selectedNotes.isEmpty) return;
+    if (selectedCount == 0) return;
 
     /// Store IDs for undo functionality
     final movedNoteIds = selectedNotes.map((n) => n.id).toList();
 
     /// Perform deletion
-    final movedCount = noteRepository.moveSelectedNotesToRecycleBin();
-
-    await noteRepository.persist();
-
-    final messenger = rootScaffoldMessengerKey.currentState;
-
-    messenger?.clearSnackBars();
+    noteRepository.moveSelectedNotesToRecycleBin(selectedNotes);
 
     /// Undo Snackbar
-    messenger?.showSnackBar(
+    showRootSnackBar(
       SnackBar(
-        content: Text('$movedCount notes moved to recycle bin'),
+        key: UniqueKey(),
+        duration: UIConstants.saveIndicatorDuration,
+        content: Text(
+          '$selectedCount ${selectedCount == 1 ? 'note' : 'notes'} moved to recycle bin',
+        ),
         action: SnackBarAction(
           label: 'Restore',
           onPressed: () async {
+            rootScaffoldMessengerKey.currentState?.hideCurrentSnackBar();
+
             for (final id in movedNoteIds) {
               noteRepository.restoreNote(id);
             }
-            await noteRepository.persist();
           },
         ),
       ),
+      autoHideAfter: UIConstants.saveIndicatorDuration,
     );
-
-    /// Ensures Snackbar cleanup after duration
-    Timer(UIConstants.saveIndicatorDuration, () {
-      messenger?.hideCurrentSnackBar();
-    });
   }
 
   /// Toggles selection mode.

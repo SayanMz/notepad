@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:notepad/core/constants/ui_constants.dart';
 import 'app_colors.dart';
 
 /// ---------------------------------------------------------------------------
@@ -52,6 +53,21 @@ class DarkTheme {
       highlightElevation: 4,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
+      ),
+    ),
+
+    /// SnackBars
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: AppColors.darkElevated,
+      contentTextStyle: const TextStyle(
+        color: AppColors.darkText,
+        fontWeight: FontWeight.w500,
+      ),
+      actionTextColor: AppColors.amber,
+      elevation: UIConstants.elevationLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(UIConstants.radiusLG),
       ),
     ),
 

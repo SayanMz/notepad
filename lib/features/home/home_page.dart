@@ -1,12 +1,10 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:notepad/core/constants/ui_constants.dart';
 import 'package:notepad/core/theme/app_colors.dart';
+import 'package:notepad/features/home/controllers/home_controller.dart';
 import 'package:notepad/features/note/data/note_repository.dart';
-import 'package:notepad/features/note/services/note_document_service.dart';
 import 'package:notepad/features/note/services/note_recovery_service.dart';
-import 'package:notepad/main.dart';
 import 'package:notepad/features/home/services/app_router.dart';
 import 'package:notepad/features/home/widgets/home_app_bar.dart';
 import 'package:notepad/features/home/widgets/note_list.dart';
@@ -68,6 +66,7 @@ class _HomePageState extends State<HomePage> {
   /// Local snapshot used ONLY during recovery flow.
   ///
   final activeNotes = noteRepository.activeNotes;
+  late final HomeController _controller;
 
   /// Controls async UI feedback (e.g., export/share loading indicator).
   ///
@@ -134,6 +133,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    _controller = HomeController(_recoveryService);
 
     _recoveryService.checkAndRecoverCrashData(activeNotes).then((shadowData) {
       if (shadowData != null && mounted) {
@@ -174,29 +174,10 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       isSelectionMode = enabled;
     });
-
-    if (!enabled) {
-      noteRepository.clearSelection();
-    }
-  }
-
-  /// Opens NotePage with optional noteId.
-  ///
-  /// ALSO:
-  /// - Clears any active SnackBars for clean UX
-  Future<void> _openNote({String? noteId}) async {
-    rootScaffoldMessengerKey.currentState?.clearSnackBars();
-
-    await Navigator.push(context, AppRouter.slide(NotePage(noteId: noteId)));
-  }
-
-  /// Toggles pin state of a note.
-  ///
-  /// PERSISTENCE:
-  /// - Immediately saves after mutation
-  Future<void> _togglePin(String noteId) async {
-    noteRepository.togglePin(noteId);
-    await noteRepository.persist();
+    _controller.toggleSelectionMode(enabled);
+    // if (!enabled) {
+    //   noteRepository.clearSelection();
+    // }
   }
 
   /// Shares selected notes as HTML.
@@ -207,25 +188,9 @@ class _HomePageState extends State<HomePage> {
   Future<void> _shareSelectedNotesAsHTML() async {
     _isSavingNotifier.value = true;
 
-    final selectedNotes = noteRepository.selectedNotes;
+    await _controller.shareSelectedNotes(context);
 
-    if (selectedNotes.isEmpty) {
-      _isSavingNotifier.value = false;
-      return;
-    }
-
-    try {
-      await NoteDocumentService.shareNotesAsHTML(
-        selectedNotes,
-        text: 'Sharing ${selectedNotes.length} Notes',
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not share selected notes: $e')),
-      );
-    } finally {
+    if (mounted) {
       _isSavingNotifier.value = false;
     }
   }
@@ -264,45 +229,11 @@ class _HomePageState extends State<HomePage> {
       ),
     );
 
-    if (shouldDelete != true) return;
-
-    final movedNoteIds = selectedNotes.map((n) => n.id).toList();
-
-    final movedCount = noteRepository.moveSelectedNotesToRecycleBin();
+    if (shouldDelete != true || !mounted) return;
 
     _setSelectionMode(false);
-    await noteRepository.persist();
 
-    final messenger = rootScaffoldMessengerKey.currentState;
-
-    messenger?.clearSnackBars();
-
-    messenger?.showSnackBar(
-      SnackBar(
-        key: UniqueKey(),
-        duration: UIConstants.saveIndicatorDuration,
-        content: Text(
-          '$movedCount ${movedCount == 1 ? 'note' : 'notes'} moved to recycle bin',
-        ),
-        action: SnackBarAction(
-          label: 'Restore',
-          onPressed: () async {
-            messenger.hideCurrentSnackBar();
-
-            for (final id in movedNoteIds) {
-              noteRepository.restoreNote(id);
-            }
-
-            await noteRepository.persist();
-          },
-        ),
-      ),
-    );
-
-    /// Ensures snackbar is dismissed after duration
-    Timer(UIConstants.saveIndicatorDuration, () {
-      messenger?.hideCurrentSnackBar();
-    });
+    await _controller.deleteSelected(selectedNotes);
   }
 
   /// -------------------------------------------------------------------------
@@ -347,8 +278,8 @@ class _HomePageState extends State<HomePage> {
           scrollController: _scrollController,
           isSelectionMode: isSelectionMode,
           isSavingNotifier: _isSavingNotifier,
-          onOpenNote: (noteId) => _openNote(noteId: noteId),
-          onTogglePin: _togglePin,
+          onOpenNote: (noteId) => _controller.openNote(context, noteId: noteId),
+          onTogglePin: (noteId) => _controller.togglePin(noteId),
           onShare: _shareSelectedNotesAsHTML,
           onDeleteSelected: _confirmBulkDelete,
           onSelectionToggle: () {
@@ -405,7 +336,8 @@ class _HomePageState extends State<HomePage> {
                 },
               ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        /*
+        /* Another animation here:
+        
           OpenContainer(
         //   transitionType: 
         //   ContainerTransitionType.fade,
@@ -422,16 +354,6 @@ class _HomePageState extends State<HomePage> {
         // floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       ),
     );
-  }
-
-  /// Utility: toggle selection for a specific note
-  void toggleSelection(String noteId) {
-    noteRepository.toggleSelected(noteId);
-  }
-
-  /// Utility: clear all selections
-  void clearSelection() {
-    noteRepository.clearSelection();
   }
 }
 

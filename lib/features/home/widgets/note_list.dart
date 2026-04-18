@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -103,12 +102,8 @@ class NoteList extends StatelessWidget {
                           background: _buildDeleteBackground(isDark),
 
                           onDismissed: (_) async {
-                            noteRepository.clearSelection();
-                            noteRepository.setSelected(note.id, true);
-                            noteRepository.moveSelectedNotesToRecycleBin();
-                            await noteRepository.persist();
-
-                            _showUndoSnackbar(note.id);
+                            noteRepository.moveToRecycleBin(note.id);
+                            _showUndoSnackbar(note);
                           },
 
                           child: _NoteCard(
@@ -196,29 +191,22 @@ class NoteList extends StatelessWidget {
   /// -------------------------------------------------------------------------
   /// UNDO SNACKBAR: For single swipe delete.
   /// -------------------------------------------------------------------------
-  void _showUndoSnackbar(String noteId) {
-    final messenger = rootScaffoldMessengerKey.currentState;
-
-    messenger?.clearSnackBars();
-
-    final note = noteRepository.findById(noteId);
-
-    messenger?.showSnackBar(
+  void _showUndoSnackbar(NotesSection note) {
+    showRootSnackBar(
       SnackBar(
-        content: Text('${note?.title ?? "Note"} moved to recycle bin'),
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+          '${note.title.isEmpty ? "Note" : note.title} moved to recycle bin',
+        ),
         action: SnackBarAction(
           label: 'Restore',
           onPressed: () async {
-            noteRepository.restoreNote(noteId);
-            await noteRepository.persist();
+            noteRepository.restoreNote(note.id);
           },
         ),
       ),
+      autoHideAfter: UIConstants.saveIndicatorDuration,
     );
-
-    Timer(UIConstants.saveIndicatorDuration, () {
-      messenger?.hideCurrentSnackBar();
-    });
   }
 }
 
@@ -263,11 +251,14 @@ class _NoteCard extends StatelessWidget {
     /// - Smaller screens → fewer lines
     /// - Larger screens → more content preview
     final maxPreviewLines = screenWidth > 1200
-        ? UIConstants.noteCardPreviewLargeDesktopLines // Desktop/Large Tablet
+        ? UIConstants
+              .noteCardPreviewLargeDesktopLines // Desktop/Large Tablet
         : screenWidth > 900
-        ? UIConstants.noteCardPreviewTabletLines // Standard Tablet
+        ? UIConstants
+              .noteCardPreviewTabletLines // Standard Tablet
         : screenWidth > 600
-        ? UIConstants.noteCardPreviewSmallTabletLines // Small Tablet/Foldable
+        ? UIConstants
+              .noteCardPreviewSmallTabletLines // Small Tablet/Foldable
         : UIConstants.noteCardPreviewPhoneLines;
 
     /// Extracts formatted preview lines from rich/plain content.
@@ -278,8 +269,12 @@ class _NoteCard extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.symmetric(
-        vertical: note.isSelected ? UIConstants.paddingMD : UIConstants.cardVerticalMargin,
-        horizontal: note.isSelected ? UIConstants.paddingXXS : UIConstants.paddingSM,
+        vertical: note.isSelected
+            ? UIConstants.paddingMD
+            : UIConstants.cardVerticalMargin,
+        horizontal: note.isSelected
+            ? UIConstants.paddingXXS
+            : UIConstants.paddingSM,
       ),
       elevation: note.isSelected ? 8 : UIConstants.elevationLow,
       shape: RoundedRectangleBorder(

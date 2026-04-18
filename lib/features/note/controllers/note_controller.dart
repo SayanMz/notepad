@@ -17,6 +17,7 @@ class NoteController {
   final NoteRepository noteRepository;
 
   Timer? _autosaveDebounce;
+  bool _isDisposed = false;
 
   /// Prevents overlapping saves
   bool _isSaving = false;
@@ -44,7 +45,7 @@ class NoteController {
     required Document document,
   }) {
     final currentSignature = _editorSignature(title, document);
-
+    //Nothing has changed so skip saving - #Guard Clause or the "Bouncer Pattern"
     if (_lastEditorSignature == currentSignature) {
       return;
     }
@@ -84,7 +85,7 @@ class NoteController {
     // Don't save if it's completely empty
     if ((title.trim() + plainText).isEmpty) return;
 
-    if (_isSaving) return;
+    if (_isSaving) return; //avoids double saving
     _isSaving = true;
 
     saveState.value = SaveState.saving;
@@ -101,19 +102,21 @@ class NoteController {
         richContent: jsonEncode(document.toDelta().toJson()),
       );
 
-      // THE FIX: Only update our ID if a note was actually created/updated.
-      // If 'saved' is null (no changes), we KEEP our existing noteId.
+      //Only update ID if a note was actually created/updated.
+      // If 'saved' is null (no changes), KEEP existing noteId.
       if (saved != null) {
-        noteId = saved.id;
+        noteId = saved
+            .id; // This id would be passed to the save above, ensures proper update
       }
 
-      await noteRepository.persist();
       _lastEditorSignature = _editorSignature(title, document);
     } finally {
       _isSaving = false;
       saveState.value = SaveState.saved;
 
       Future.delayed(UIConstants.saveIndicatorDuration, () {
+        if (_isDisposed) return;
+
         if (saveState.value == SaveState.saved) {
           saveState.value = SaveState.idle;
         }
@@ -121,7 +124,29 @@ class NoteController {
     }
   }
 
+  /// Called ONLY when the user presses the back button to leave the page.
+  /// Cleans up the database if they left the note completely blank.
+  void saveAndCleanupOnClose({
+    required String title,
+    required Document document,
+  }) {
+    final plainText = document.toPlainText().trim();
+    final cleanTitle = title.trim();
+
+    // Catch it if it's completely empty OR if it's an empty 'Untitled note'
+    if ((cleanTitle.isEmpty || cleanTitle == 'Untitled note') &&
+        plainText.isEmpty) {
+      if (noteId != null) {
+        noteRepository.deleteForever(noteId!);
+      }
+      return;
+    }
+
+    saveNote(title: title, document: document);
+  }
+
   void dispose() {
+    _isDisposed = true;
     _autosaveDebounce?.cancel();
     saveState.dispose();
   }

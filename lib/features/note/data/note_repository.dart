@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:notepad/core/data/app_data.dart';
-import 'package:notepad/core/services/storage_service.dart';
 
 /// ------------------------------------------------------------
 /// NOTE REPOSITORY
@@ -70,7 +69,7 @@ class NoteRepository extends ChangeNotifier {
 
   ///Stress Test
   void stressTestHive() async {
-    for (int i = 0; i < 5100; i++) {
+    for (int i = 0; i < 100; i++) {
       saveNote(
         noteId: null, // Forces a new ID generation
         title: 'Stress Test Note #$i',
@@ -89,10 +88,10 @@ class NoteRepository extends ChangeNotifier {
 
   /// Persists current in-memory notes to storage.
   /// NOTE: Explicit persistence allows batching writes.
-  Future<void> persist() async {
-    await StorageService.exportAllNotesToJSON(_notes);
-    // notifyListeners();
-  }
+  // Future<void> persist() async {
+  //   await StorageService.exportAllNotesToJSON(_notes);
+  //   // notifyListeners();
+  // }
 
   /// Adds initial demo notes for onboarding UX.
   void _addSeedNotes() {
@@ -165,7 +164,7 @@ class NoteRepository extends ChangeNotifier {
   /// Searches notes by keyword in title/content.
   /// Ignores deleted notes.
   List<NotesSection> search(String query) {
-    final normalizedQuery = query.trim().toLowerCase();
+    final normalizedQuery = query.toLowerCase();
 
     if (normalizedQuery.isEmpty) {
       return const [];
@@ -202,16 +201,7 @@ class NoteRepository extends ChangeNotifier {
     String richContent = '',
   }) {
     final rawTitle = title.trim();
-    final normalizedContent = content.trimRight();
     final existingNote = noteId == null ? null : findById(noteId);
-
-    // Skip if nothing changed
-    if (existingNote != null &&
-        existingNote.title == rawTitle &&
-        existingNote.content == normalizedContent &&
-        existingNote.richContent == richContent) {
-      return existingNote;
-    }
 
     final now = DateTime.now();
 
@@ -219,11 +209,11 @@ class NoteRepository extends ChangeNotifier {
     if (existingNote != null) {
       existingNote
         ..title = rawTitle
-        ..content = normalizedContent
+        ..content = content
         ..richContent = richContent
         ..updatedAt = now;
 
-      StorageService.saveNote(existingNote);
+      _box.put(existingNote.id, existingNote);
       notifyListeners();
       return existingNote;
     }
@@ -231,7 +221,8 @@ class NoteRepository extends ChangeNotifier {
     // Creates a new note
     final newNote = NotesSection(
       title: rawTitle,
-      content: normalizedContent,
+      content: content,
+      //normalizedContent,
       richContent: richContent,
       createdAt: now,
       updatedAt: now,
@@ -241,7 +232,7 @@ class NoteRepository extends ChangeNotifier {
     final pinnedCount = _notes.where((n) => n.isPinned).length;
     _notes.insert(pinnedCount, newNote);
     _noteMap[newNote.id] = newNote;
-    StorageService.saveNote(newNote);
+    _box.put(newNote.id, newNote);
 
     notifyListeners();
     return newNote;
@@ -267,7 +258,7 @@ class NoteRepository extends ChangeNotifier {
   /// Used for deterministic actions (e.g., bulk select).
   void setSelected(String noteId, bool isSelected) {
     final note = findById(noteId);
-    if (note == null) return;
+    if (note == null) return; // #Defensive Programming approach is used here
 
     note.isSelected = isSelected;
     notifyListeners();
@@ -305,11 +296,9 @@ class NoteRepository extends ChangeNotifier {
   // DELETION LOGIC
   // ------------------------------------------------------------
 
-  /// Soft delete: moves notes to recycle bin.
-  int moveSelectedNotesToRecycleBin() {
-    final selected = selectedNotes.where((note) => !note.isDeleted).toList();
-
-    for (final note in selected) {
+  /// Soft delete: moves bulk notes to recycle bin.(selection mode)
+  void moveSelectedNotesToRecycleBin(List<NotesSection> notes) {
+    for (final note in notes) {
       note
         ..isDeleted = true
         ..isSelected = false;
@@ -317,7 +306,19 @@ class NoteRepository extends ChangeNotifier {
     }
 
     notifyListeners();
-    return selected.length;
+  }
+
+  ///Soft delete: moves one note to recycle bin.(Dismissible)
+  void moveToRecycleBin(String noteId) {
+    final note = findById(noteId);
+    if (note == null) return;
+
+    note
+      ..isDeleted = true
+      ..isSelected = false; // Unselect it just in case
+
+    _box.put(note.id, note);
+    notifyListeners();
   }
 
   /// Restores a note from recycle bin.
@@ -343,8 +344,7 @@ class NoteRepository extends ChangeNotifier {
     //Layer 2 (The Index):
     _noteMap.remove(noteId);
     //Layer 3 (The Storage):
-    StorageService.deleteNote(noteId);
-
+    _box.delete(noteId);
     notifyListeners();
 
     return _notes.length != previousLength;

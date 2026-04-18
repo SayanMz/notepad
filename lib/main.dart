@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
@@ -25,6 +27,27 @@ import 'package:notepad/features/home/home_page.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
+
+Timer? _rootSnackBarTimer;
+
+/// Shows a snackbar through the app-wide messenger and resets any pending hide timer.
+void showRootSnackBar(
+  SnackBar snackBar, {
+  Duration? autoHideAfter,
+}) {
+  final messenger = rootScaffoldMessengerKey.currentState;
+  if (messenger == null) return;
+
+  _rootSnackBarTimer?.cancel();
+  messenger.clearSnackBars();
+  messenger.showSnackBar(snackBar);
+
+  if (autoHideAfter != null) {
+    _rootSnackBarTimer = Timer(autoHideAfter, () {
+      messenger.hideCurrentSnackBar();
+    });
+  }
+}
 
 /// ---------------------------------------------------------------------------
 /// APPLICATION ENTRY POINT

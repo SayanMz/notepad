@@ -468,14 +468,14 @@ class NoteDocumentService {
         '<style>body { font-family: Segoe UI, Arial, sans-serif; padding: 32px; line-height: 1.5; }',
       )
       ..writeln(
-        'h1 { margin-bottom: 24px; } p { margin: 0 0 10px; } ul, ol { margin: 0 0 10px 24px; }',
+        'h1 { margin-bottom: 24px; text-align: center; } p { margin: 0 0 10px; } ul, ol { margin: 0 0 10px 24px; }',
       )
       ..writeln(
         'a { color: #1565c0 !important; text-decoration: underline !important; }</style>',
       )
       ..writeln('</head><body>')
       ..writeln(
-        '<h1>${_escapeHtml(title.trim().isEmpty ? 'Untitled note' : title.trim())}</h1>',
+        '<h1 style="text-align: center;">${_escapeHtml(title.trim().isEmpty ? 'Untitled note' : title.trim())}</h1>',
       )
       ..write(_buildHtmlBody(lines))
       ..writeln('</body></html>');

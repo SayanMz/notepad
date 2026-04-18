@@ -5,6 +5,7 @@ import 'package:notepad/core/constants/ui_constants.dart';
 import 'package:notepad/core/data/app_data.dart';
 import 'package:notepad/core/theme/app_colors.dart';
 import 'package:notepad/features/note/data/note_repository.dart';
+import 'package:notepad/main.dart';
 
 class RecyclePage extends StatefulWidget {
   const RecyclePage({super.key});
@@ -47,7 +48,6 @@ class _RecyclePageState extends State<RecyclePage> {
     // Calling deleteForever triggers notifyListeners()
     // inside the repository, which automatically commands the ListenableBuilder to redraw.
     noteRepository.deleteForever(note.id);
-    await noteRepository.persist();
 
     if (!mounted) return;
     navigator.pop();
@@ -95,14 +95,6 @@ class _RecyclePageState extends State<RecyclePage> {
               ? AppColors.darkScaffold
               : AppColors.lightScaffold,
           appBar: AppBar(
-            leading: BackButton(
-              //color: isDark ? Colors.white : Colors.black ,
-              onPressed: () async {
-                await noteRepository.persist();
-                if (!mounted) return;
-                Navigator.pop(this.context);
-              },
-            ),
             title: Text(
               'Recycle Bin',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -161,19 +153,22 @@ class _RecyclePageState extends State<RecyclePage> {
                           size: UIConstants.recycleIconSize,
                         ),
                       ),
-                      onDismissed: (direction) async {
-                        // Data mutation fires notifyListeners() automatically
-                        noteRepository.restoreNote(note.id);
-                        await noteRepository.persist();
+                      onDismissed: (direction) {
+                        final restoredTitle = note.title.isEmpty
+                            ? 'Untitled note'
+                            : note.title;
 
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).clearSnackBars();
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        // This mutates the data AND saves it directly to Hive
+                        noteRepository.restoreNote(note.id);
+                        if (!mounted) return;
+
+                        showRootSnackBar(
                           SnackBar(
-                            content: Text('${note.title} is now restored.'),
+                            content: Text('$restoredTitle is now restored.'),
                             duration: UIConstants.saveIndicatorDuration,
                             behavior: SnackBarBehavior.floating,
                           ),
+                          autoHideAfter: UIConstants.saveIndicatorDuration,
                         );
                       },
                       child: Card(

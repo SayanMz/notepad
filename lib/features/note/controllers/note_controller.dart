@@ -89,6 +89,7 @@ class NoteController {
     _isSaving = true;
 
     saveState.value = SaveState.saving;
+    await Future.delayed(Duration(milliseconds: 500));
 
     try {
       final resolvedTitle = title.trim().isEmpty

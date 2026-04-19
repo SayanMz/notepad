@@ -25,7 +25,7 @@ import 'package:notepad/core/data/app_data.dart';
 /// ------------------------------------------------------------
 class NoteRepository extends ChangeNotifier {
   /// The physical database
-  final Box<NotesSection> _box = Hive.box<NotesSection>('notes_box');
+  late final Box<NotesSection> _box = Hive.box<NotesSection>('notes_box');
 
   /// Internal mutable list containing all notes.
   /// Includes active, deleted, and selected notes.
@@ -39,6 +39,11 @@ class NoteRepository extends ChangeNotifier {
   /// Singleton setup to ensure one shared instance across app.
   NoteRepository._internal();
   static final NoteRepository _instance = NoteRepository._internal();
+
+  /// Public constructor strictly for injecting Fakes during testing.
+  @visibleForTesting
+  NoteRepository.internalForTesting();
+
   factory NoteRepository() => _instance;
 
   /// ------------------------------------------------------------

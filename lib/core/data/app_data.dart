@@ -91,6 +91,7 @@ class NotesSection {
 // }
 
 /// Stores app-level preferences such as theme mode.
+/// More settings values will be stored here in future as the app grows
 @HiveType(typeId: 1)
 class AppSettings {
   @HiveField(0)
@@ -100,11 +101,11 @@ class AppSettings {
   const AppSettings({this.isDarkMode = false});
 
   /// Serializes settings for local persistence.
-  Map<String, dynamic> toJson() => {'isDarkMode': isDarkMode};
+  //Map<String, dynamic> toJson() => {'isDarkMode': isDarkMode};
 
   /// Rebuilds settings from stored JSON data.
-  factory AppSettings.fromJson(Map<String, dynamic> json) =>
-      AppSettings(isDarkMode: json['isDarkMode'] ?? false);
+  // factory AppSettings.fromJson(Map<String, dynamic> json) =>
+  //     AppSettings(isDarkMode: json['isDarkMode'] ?? false);
 
   /// Returns a new settings object with only the requested values changed.
   AppSettings copyWith({bool? isDarkMode}) {

@@ -15,6 +15,19 @@ Notepad is a simple, smooth, and local-first note-taking app built with Flutter.
 - Recover unsaved notes after unexpected app closure
 - Work offline and save everything locally
 
+## 🧠 Engineering & Architecture Highlights
+
+This project was built with a strict focus on robust software engineering principles, prioritizing maintainability, data safety, and performance.
+
+* **Decoupled Architecture:** Strict separation of UI, Controllers, and Repositories. Business logic is completely isolated from the presentation layer.
+* **$O(1)$ Data Layer:** Implemented Hive with an in-memory Map indexing strategy, guaranteeing constant-time performance for lookups and saves, regardless of scale.
+* **Zero-Leak State Management:** Utilized isolated `ValueNotifier` and `ValueListenableBuilder` patterns (e.g., in the SaveIndicator) to prevent unnecessary widget rebuilds and ensure clean memory disposal.
+* **Defensive Programming:** Implemented robust guard clauses, debounced autosaving, and edge-case handling (such as auto-purging completely empty notes upon disposal).
+* **Automated Testing Suite:** The codebase is protected by professional-grade tests:
+    * **Unit Tests:** Verifying pure business logic and state transitions in the Controllers.
+    * **Widget Tests:** Proving isolated UI components render correctly under specific states.
+    * **Data Integrity Tests:** Utilizing mocked, sandboxed Hive environments to mathematically prove sorting invariants and soft-delete logic.
+
 ## 🎯 Why this app is useful
 
 This project is made for people who want a notes app that feels fast, clean, and dependable. It is especially useful if you prefer:

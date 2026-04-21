@@ -26,8 +26,6 @@ This project was built with a strict focus on robust software engineering princi
     * **Widget Tests:** Proving isolated UI components render correctly under specific states.
     * **Data Integrity Tests:** Utilizing mocked, sandboxed Hive environments to mathematically prove sorting invariants and soft-delete logic.
 
-## 🎯 Why this app is useful
-=======
 ## ✨ Cool Things It Can Do
 
 

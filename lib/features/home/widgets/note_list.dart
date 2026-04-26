@@ -3,10 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
 import 'package:notepad/core/constants/ui_constants.dart';
 import 'package:notepad/core/data/app_data.dart';
+import 'package:notepad/core/theme/app_colors.dart';
 import 'package:notepad/features/note/data/note_repository.dart';
 import 'package:notepad/main.dart';
 import 'package:notepad/features/note/services/note_text_utils.dart';
-import 'package:notepad/core/theme/app_colors.dart';
+//import 'package:flutter_slidable/flutter_slidable.dart';
 
 import 'selection_toolbar.dart';
 
@@ -60,14 +61,9 @@ class NoteList extends StatelessWidget {
         final allSelected = noteRepository.areAllActiveNotesSelected;
 
         return activeNotes.isEmpty
-            /// Builds list UI including:
-            /// - Selection controls
-            /// - Swipe-to-delete
-            /// - Note cards
             ? _buildEmptyState()
             : Column(
                 children: [
-                  /// Selection toolbar
                   if (isSelectionMode)
                     SelectionToolbar(
                       isDark: isDark,
@@ -79,50 +75,23 @@ class NoteList extends StatelessWidget {
                       onDelete: onDeleteSelected,
                     ),
 
-                  /// Note list
                   Expanded(
                     child: ListView.builder(
                       controller: scrollController,
                       itemCount: activeNotes.length,
-                      padding: EdgeInsets.all(UIConstants.listPadding),
+                      padding: const EdgeInsets.all(UIConstants.listPadding),
                       itemBuilder: (context, index) {
                         final note = activeNotes[index];
 
-                        return Dismissible(
-                          key: ValueKey('dismiss_${note.id}'),
-
-                          /// Disable swipe in selection mode
-                          direction: isSelectionMode
-                              ? DismissDirection.none
-                              : DismissDirection.startToEnd,
-
-                          background: _buildDeleteBackground(isDark),
-
-                          onDismissed: (_) async {
-                            noteRepository.moveToRecycleBin(note.id);
-                            _showUndoSnackbar(note);
-                          },
-
-                          child: _NoteCard(
-                            note: note,
-                            isSelectionMode: isSelectionMode,
-                            isSavingNotifier: isSavingNotifier,
-                            onTap: () async {
-                              if (isSelectionMode) {
-                                noteRepository.toggleSelected(note.id);
-                                return;
-                              }
-
-                              noteRepository.moveOnTop(note);
-                              await onOpenNote(note.id);
-                            },
-                            onLongPress: () {
-                              HapticFeedback.selectionClick();
-                              onSelectionToggle();
-                              noteRepository.clearSelection();
-                            },
-                            onPin: () => onTogglePin(note.id),
-                          ),
+                        return _SwipeableNoteItem(
+                          note: note,
+                          isDark: isDark,
+                          isSelectionMode: isSelectionMode,
+                          isSavingNotifier: isSavingNotifier,
+                          onOpenNote: onOpenNote,
+                          onSelectionToggle: onSelectionToggle,
+                          onTogglePin: onTogglePin,
+                          onDeleted: _showUndoSnackbar,
                         );
                       },
                     ),
@@ -161,26 +130,6 @@ class NoteList extends StatelessWidget {
             style: TextStyle(color: Colors.grey),
           ),
         ],
-      ),
-    );
-  }
-
-  /// -------------------------------------------------------------------------
-  /// DELETE BACKGROUND
-  /// -------------------------------------------------------------------------
-  Widget _buildDeleteBackground(bool isDark) {
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: UIConstants.cardVerticalMargin),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.deleteDarkBg : AppColors.deleteLightBg,
-        borderRadius: BorderRadius.circular(UIConstants.radiusMD),
-      ),
-      alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(horizontal: UIConstants.paddingLG),
-      child: Icon(
-        Icons.delete_outline,
-        size: UIConstants.iconLG,
-        color: isDark ? AppColors.deleteDarkIcon : AppColors.deleteLightIcon,
       ),
     );
   }
@@ -236,8 +185,6 @@ class _NoteCard extends StatelessWidget {
   /// Shared notifier to indicate export/save progress.
   final ValueNotifier<bool> isSavingNotifier;
 
-  static const double _cardRadius = UIConstants.radiusMD;
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -264,20 +211,14 @@ class _NoteCard extends StatelessWidget {
     );
 
     return Card(
-      margin: EdgeInsets.symmetric(
-        vertical: note.isSelected
-            ? UIConstants.paddingMD
-            : UIConstants.cardVerticalMargin,
-        horizontal: note.isSelected
-            ? UIConstants.paddingXXS
-            : UIConstants.paddingSM,
-      ),
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
       elevation: note.isSelected ? 8 : UIConstants.elevationLow,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(_cardRadius),
+        borderRadius: BorderRadius.circular(UIConstants.radiusMD),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(_cardRadius),
+        borderRadius: BorderRadius.zero,
         onTap: onTap,
         onLongPress: onLongPress,
         child: AnimatedContainer(
@@ -289,18 +230,16 @@ class _NoteCard extends StatelessWidget {
             color: note.isSelected
                 ? colorScheme.primary.withValues(alpha: 0.05)
                 : Colors.transparent,
+            borderRadius: BorderRadius.circular(UIConstants.radiusMD),
             border: note.isSelected
                 ? Border.all(
                     color: colorScheme.primary.withValues(alpha: 0.6),
                     width: UIConstants.selectionBorderWidth,
                   )
-                : Border.all(
-                    color: Colors.transparent,
-                    width: UIConstants.selectionBorderWidth,
-                  ),
-            borderRadius: BorderRadius.circular(_cardRadius),
+                : null,
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               /// Selection indicator
               AnimatedSwitcher(
@@ -359,27 +298,18 @@ class _NoteCard extends StatelessWidget {
                 ),
               ),
 
-              // RIGHT SIDE: The action column
-              Column(
-                mainAxisAlignment: MainAxisAlignment
-                    .spaceBetween, // Uses SizedBox for precise gaps
-                children: [
-                  /// Pin toggle
-                  AnimatedScale(
-                    scale: note.isPinned ? UIConstants.pinnedScale : 1.0,
-                    duration: UIConstants.animationFast,
-                    child: IconButton(
-                      icon: Icon(
-                        note.isPinned
-                            ? Icons.push_pin
-                            : Icons.push_pin_outlined,
-                        size: UIConstants.iconSM,
-                        color: colorScheme.primary.withValues(alpha: 0.6),
-                      ),
-                      onPressed: onPin,
-                    ),
+              // RIGHT SIDE: The Pin
+              AnimatedScale(
+                scale: note.isPinned ? UIConstants.pinnedScale : 1.0,
+                duration: UIConstants.animationFast,
+                child: IconButton(
+                  icon: Icon(
+                    note.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                    size: UIConstants.iconSM,
+                    color: colorScheme.primary.withValues(alpha: 0.6),
                   ),
-                ],
+                  onPressed: onPin,
+                ),
               ),
             ],
           ),
@@ -454,6 +384,273 @@ class _PreviewLine extends StatelessWidget {
                 height: width < UIConstants.noteCardPreviewMaxWidthBreakpoint
                     ? UIConstants.noteCardPreviewLineHeightCompact
                     : UIConstants.noteCardPreviewLineHeightExpanded,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ---------------------------------------------------------------------------
+/// SWIPEABLE NOTE ITEM (The Physics Engine)
+/// ---------------------------------------------------------------------------
+class _SwipeableNoteItem extends StatefulWidget {
+  const _SwipeableNoteItem({
+    required this.note,
+    required this.isDark,
+    required this.isSelectionMode,
+    required this.isSavingNotifier,
+    required this.onOpenNote,
+    required this.onSelectionToggle,
+    required this.onTogglePin,
+    required this.onDeleted,
+  });
+
+  final NotesSection note;
+  final bool isDark;
+  final bool isSelectionMode;
+  final ValueNotifier<bool> isSavingNotifier;
+  final Future<void> Function(String) onOpenNote;
+  final VoidCallback onSelectionToggle;
+  final Future<void> Function(String) onTogglePin;
+  final void Function(NotesSection) onDeleted;
+
+  @override
+  State<_SwipeableNoteItem> createState() => _SwipeableNoteItemState();
+}
+
+class _SwipeableNoteItemState extends State<_SwipeableNoteItem> {
+  // 1. ISOLATED STATE: Tracks thumb drag percentage without rebuilding the card
+  final ValueNotifier<double> _dragProgress = ValueNotifier<double>(0.0);
+
+  @override
+  void dispose() {
+    _dragProgress.dispose(); // Prevent memory leaks when scrolling
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        vertical: widget.note.isSelected
+            ? UIConstants.paddingMD
+            : UIConstants.cardVerticalMargin,
+        horizontal: widget.note.isSelected
+            ? UIConstants.paddingXXS
+            : UIConstants.paddingSM,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cardWidth = constraints.maxWidth;
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                top: 0.5,
+                bottom: 0.5,
+                left: 0.5,
+                right: 16,
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  elevation: 0,
+                  color: widget.isDark
+                      ? AppColors.deleteDarkBg
+                      : AppColors.deleteLightBg,
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.horizontal(
+                      left: Radius.circular(UIConstants.radiusMD - 1.0),
+                      right: Radius.zero,
+                    ),
+                  ),
+                  child: Container(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.only(left: UIConstants.paddingLG),
+
+                    // 2. THE ANIMATION BUILDER: Listens to the thumb drag
+                    child: ValueListenableBuilder<double>(
+                      valueListenable: _dragProgress,
+                      builder: (context, progress, child) {
+                        final draggedPixels = progress * cardWidth;
+                        const iconWidth = UIConstants.iconLG;
+                        const targetPadding = UIConstants.paddingLG;
+
+                        // PHASE 1: Center-Gap Slide
+                        double xOffset = (draggedPixels / 2) - (iconWidth / 2);
+                        xOffset = xOffset.clamp(
+                          double.negativeInfinity,
+                          targetPadding,
+                        );
+
+                        // The exact pixel mark where the icon locks into place
+                        const lockPoint =
+                            (targetPadding * 2) + iconWidth; // 60.0
+
+                        final scale = (draggedPixels / lockPoint).clamp(
+                          0.5,
+                          1.0,
+                        );
+                        final opacity = (draggedPixels / lockPoint).clamp(
+                          0.0,
+                          1.0,
+                        );
+
+                        // PHASE 2: The Lid Pop
+                        // Only starts opening AFTER draggedPixels passes the 60.0 lockPoint.
+                        // Full open is reached 90 pixels after the lockPoint (150px total drag).
+                        final lidProgress = ((draggedPixels - lockPoint) / 90.0)
+                            .clamp(0.0, 1.0);
+
+                        return Transform.translate(
+                          offset: Offset(xOffset, 0),
+                          child: Transform.scale(
+                            scale: scale,
+                            child: Opacity(
+                              opacity: opacity,
+                              // Replace the static Icon with our new Custom Vector!
+                              child: _AnimatedTrashIcon(
+                                lidProgress: lidProgress,
+                                color: widget.isDark
+                                    ? AppColors.deleteDarkIcon
+                                    : AppColors.deleteLightIcon,
+                                size: UIConstants.iconLG,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              Dismissible(
+                key: ValueKey('dismiss_${widget.note.id}'),
+                direction: widget.isSelectionMode
+                    ? DismissDirection.none
+                    : DismissDirection.startToEnd,
+                background: const ColoredBox(color: Colors.transparent),
+
+                // 3. THE SENSOR: Streams the exact decimal of your thumb position
+                onUpdate: (details) {
+                  if (!mounted) return;
+                  _dragProgress.value = details.progress;
+                },
+
+                onDismissed: (_) {
+                  noteRepository.moveToRecycleBin(widget.note.id);
+                  widget.onDeleted(widget.note);
+                },
+                child: _NoteCard(
+                  note: widget.note,
+                  isSelectionMode: widget.isSelectionMode,
+                  isSavingNotifier: widget.isSavingNotifier,
+                  onTap: () async {
+                    if (widget.isSelectionMode) {
+                      noteRepository.toggleSelected(widget.note.id);
+                      return;
+                    }
+                    noteRepository.moveOnTop(widget.note);
+                    await widget.onOpenNote(widget.note.id);
+                  },
+                  onLongPress: () {
+                    HapticFeedback.selectionClick();
+                    widget.onSelectionToggle();
+                    noteRepository.clearSelection();
+                  },
+                  onPin: () => widget.onTogglePin(widget.note.id),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// ---------------------------------------------------------------------------
+/// CUSTOM ANIMATED TRASH CAN (Pure Vertical Lift)
+/// ---------------------------------------------------------------------------
+class _AnimatedTrashIcon extends StatelessWidget {
+  const _AnimatedTrashIcon({
+    required this.lidProgress,
+    required this.color,
+    this.size = 28.0,
+  });
+
+  final double lidProgress;
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    // THE PHYSICS: Pure linear vertical lift.
+    // As lidProgress goes from 0.0 to 1.0, the lid lifts exactly 4.5 pixels straight up.
+    // Because it is tied to your thumb, swiping backwards naturally pulls it down!
+    final yOffset = lidProgress * -4.5;
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          // --- THE BIN (Static Base) ---
+          Positioned(
+            bottom: 2,
+            child: Container(
+              width: size * 0.55,
+              height: size * 0.60,
+              decoration: BoxDecoration(
+                border: Border.all(color: color, width: 2.0),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(5),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Container(width: 1.5, height: size * 0.3, color: color),
+                  Container(width: 1.5, height: size * 0.3, color: color),
+                ],
+              ),
+            ),
+          ),
+
+          // --- THE LID (Straight Up & Down) ---
+          Positioned(
+            top: size * 0.15,
+            child: Transform.translate(
+              // Only shifting the Y-axis. No rotation, no X-axis shifting.
+              offset: Offset(0, yOffset),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // The Handle
+                  Container(
+                    width: size * 0.2,
+                    height: 2.0,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(3),
+                      ),
+                    ),
+                  ),
+                  // The Lid Base
+                  Container(
+                    width: size * 0.75,
+                    height: 2.0,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

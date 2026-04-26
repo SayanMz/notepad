@@ -45,10 +45,10 @@ class AppColors {
   ///For Dismissible widget -
   ///Light and dark theme
   // Background
-  static const deleteLightBg = Color(0xFFFEE2E2); // soft red (Tailwind-like)
+  static const deleteLightBg = Color(0xFFD15B5B); // Muted Crimson
   static const deleteDarkBg = Color(0xFF3F1D1D); // muted deep red
   // Icon / Accent
 
-  static const deleteLightIcon = Color(0xFFDC2626); // strong red
+  static const deleteLightIcon = Colors.white; // strong red
   static const deleteDarkIcon = Color(0xFFFF6B6B); // bright contrast red
 }

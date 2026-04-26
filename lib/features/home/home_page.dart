@@ -336,22 +336,6 @@ class _HomePageState extends State<HomePage> {
                 },
               ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        /* Another animation here:
-        
-          OpenContainer(
-        //   transitionType: 
-        //   ContainerTransitionType.fade,
-        //   openBuilder: (context, _) => const NotePage(), // Correct destination
-        //   tappable: false,
-        //   closedShape: const RoundedRectangleBorder(
-        //     borderRadius: BorderRadius.all(Radius.circular(UIConstants.radiusLG)),
-        //   ),
-        //   closedElevation: 0,
-        //   closedColor: Colors.transparent,
-        //   transitionDuration: const Duration(milliseconds: 350),
-          */
-
-        // floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       ),
     );
   }
@@ -379,5 +363,3 @@ class _HomePageState extends State<HomePage> {
 /// 4. Scalability:
 ///    - Centralized routing (AppRouter)
 ///    - Service layer separation
-///
-/// This level of explanation is strong for mid → senior Flutter interviews.

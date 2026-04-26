@@ -126,40 +126,16 @@ class _RecyclePageState extends State<RecyclePage> {
                   itemBuilder: (context, index) {
                     final note = deletedNotes[index];
 
-                    return Dismissible(
-                      key: ValueKey('restore_${note.id}'),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        margin: const EdgeInsets.all(
-                          UIConstants.recycleCardMargin,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.green.withValues(alpha: 0.2)
-                              : const Color(0xFFC8E6C9),
-                          borderRadius: BorderRadius.circular(
-                            UIConstants.recycleCardRadius,
-                          ),
-                        ),
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: UIConstants.paddingLG,
-                        ),
-                        child: Icon(
-                          Icons.restore,
-                          color: isDark
-                              ? Colors.greenAccent
-                              : Color(0xFF2E7D32),
-                          size: UIConstants.recycleIconSize,
-                        ),
-                      ),
-                      onDismissed: (direction) {
-                        final restoredTitle = note.title.isEmpty
+                    return _SwipeableRestoreItem(
+                      note: note,
+                      isDark: isDark,
+                      onShowActionSheet: _showNoteActionSheet,
+                      onRestore: (restoredNote) {
+                        final restoredTitle = restoredNote.title.isEmpty
                             ? 'Untitled note'
-                            : note.title;
+                            : restoredNote.title;
 
-                        // This mutates the data AND saves it directly to Hive
-                        noteRepository.restoreNote(note.id);
+                        noteRepository.restoreNote(restoredNote.id);
                         if (!mounted) return;
 
                         showRootSnackBar(
@@ -171,45 +147,200 @@ class _RecyclePageState extends State<RecyclePage> {
                           autoHideAfter: UIConstants.saveIndicatorDuration,
                         );
                       },
-                      child: Card(
-                        elevation: UIConstants.elevationLow,
-                        margin: const EdgeInsets.all(
-                          UIConstants.recycleCardMargin,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            UIConstants.recycleCardRadius,
-                          ),
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(
-                            UIConstants.recycleCardPadding,
-                          ),
-                          title: Text(
-                            note.title.isEmpty ? 'Untitled note' : note.title,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text(
-                            note.content.isEmpty
-                                ? 'No additional text'
-                                : note.content,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: Colors.grey[700]),
-                          ),
-                          trailing: IconButton(
-                            onPressed: () =>
-                                _showNoteActionSheet(context, note),
-                            icon: const Icon(Icons.more_vert),
-                          ),
-                          onLongPress: HapticFeedback.mediumImpact,
-                        ),
-                      ),
                     );
                   },
                 ),
         );
       },
+    );
+  }
+}
+
+/// ---------------------------------------------------------------------------
+/// SWIPEABLE RESTORE ITEM (The RTL Physics Engine)
+/// ---------------------------------------------------------------------------
+class _SwipeableRestoreItem extends StatefulWidget {
+  const _SwipeableRestoreItem({
+    required this.note,
+    required this.isDark,
+    required this.onRestore,
+    required this.onShowActionSheet,
+  });
+
+  final NotesSection note;
+  final bool isDark;
+  final void Function(NotesSection) onRestore;
+  final void Function(BuildContext, NotesSection) onShowActionSheet;
+
+  @override
+  State<_SwipeableRestoreItem> createState() => _SwipeableRestoreItemState();
+}
+
+class _SwipeableRestoreItemState extends State<_SwipeableRestoreItem> {
+  // ISOLATED STATE: Tracks the thumb!
+  final ValueNotifier<double> _dragProgress = ValueNotifier<double>(0.0);
+
+  @override
+  void dispose() {
+    _dragProgress.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(UIConstants.recycleCardMargin),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cardWidth = constraints.maxWidth;
+
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // --- THE PERMANENT GREEN BACKGROUND ---
+              Positioned(
+                top: 0.5,
+                bottom: 0.5,
+                right: 0.5, // Tucked to avoid right-side bleed
+                left: 16, // Flat gap on the left
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  elevation: 0,
+                  clipBehavior: Clip.antiAlias,
+                  color: widget.isDark
+                      ? Colors.green.withValues(alpha: 0.2)
+                      : const Color(0xFFC8E6C9),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.horizontal(
+                      right: Radius.circular(
+                        UIConstants.recycleCardRadius - 1.0,
+                      ),
+                      left: Radius.zero, // Razor flat left edge
+                    ),
+                  ),
+                  child: Container(
+                    alignment: Alignment.centerRight,
+                    // The icon's resting place
+                    padding: const EdgeInsets.only(
+                      right: UIConstants.paddingLG,
+                    ),
+
+                    // --- THE ANIMATION BUILDER ---
+                    child: ValueListenableBuilder<double>(
+                      valueListenable: _dragProgress,
+                      builder: (context, progress, child) {
+                        final draggedPixels = progress * cardWidth;
+                        const iconWidth = UIConstants.recycleIconSize;
+                        const targetPadding = UIConstants.paddingLG;
+
+                        // 1. RTL Center-Gap Slide Algorithm
+                        const lockPoint = (targetPadding * 2) + iconWidth;
+
+                        double xOffset = (lockPoint / 2) - (draggedPixels / 2);
+                        xOffset = xOffset.clamp(0.0, double.infinity);
+
+                        final scale = (draggedPixels / lockPoint).clamp(
+                          0.5,
+                          1.0,
+                        );
+                        final opacity = (draggedPixels / lockPoint).clamp(
+                          0.0,
+                          1.0,
+                        );
+
+                        // 2. THE WHEEL PHYSICS (Clamped Rotation)
+                        // Tracks exactly when the icon hits the 60px lockPoint, capping at 1.0.
+                        final rotationProgress = (draggedPixels / lockPoint)
+                            .clamp(0.0, 2.0);
+
+                        // Rotates exactly 180 degrees (-3.14 radians) and stops dead.
+                        // If you want a smaller rotation, change -3.14 to -1.57 (90 degrees).
+                        final angle = rotationProgress * -3.14;
+
+                        return Transform.translate(
+                          offset: Offset(xOffset, 0),
+                          child: Transform.scale(
+                            scale: scale,
+                            child: Opacity(
+                              opacity: opacity,
+                              child: Transform.rotate(
+                                angle: angle,
+                                child: Icon(
+                                  Icons.restore,
+                                  color: widget.isDark
+                                      ? Colors.greenAccent
+                                      : const Color(0xFF2E7D32),
+                                  size: UIConstants.recycleIconSize,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+
+              // --- THE SWIPE MASK ---
+              Dismissible(
+                key: ValueKey('restore_${widget.note.id}'),
+                // Right-to-Left swipe!
+                direction: DismissDirection.endToStart,
+                background: const ColoredBox(color: Colors.transparent),
+
+                // THE SENSOR
+                onUpdate: (details) {
+                  if (!mounted) return;
+                  _dragProgress.value = details.progress;
+                },
+
+                onDismissed: (_) => widget.onRestore(widget.note),
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  elevation: UIConstants.elevationLow,
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(
+                      UIConstants.recycleCardRadius,
+                    ),
+                  ),
+                  child: ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        UIConstants.recycleCardRadius,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.all(
+                      UIConstants.recycleCardPadding,
+                    ),
+                    title: Text(
+                      widget.note.title.isEmpty
+                          ? 'Untitled note'
+                          : widget.note.title,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      widget.note.content.isEmpty
+                          ? 'No additional text'
+                          : widget.note.content,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.grey[700]),
+                    ),
+                    trailing: IconButton(
+                      onPressed: () =>
+                          widget.onShowActionSheet(context, widget.note),
+                      icon: const Icon(Icons.more_vert),
+                    ),
+                    onLongPress: HapticFeedback.mediumImpact,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

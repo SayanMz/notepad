@@ -440,7 +440,7 @@ class NoteToolbar extends StatelessWidget {
           builder: (context, menuController, child) => IconButton(
             icon: const Icon(
               Icons.format_align_justify,
-              color: Colors.blueAccent, // ALWAYS blue, as requested
+              color: Colors.blueAccent,
             ),
             onPressed: () => menuController.isOpen
                 ? menuController.close()

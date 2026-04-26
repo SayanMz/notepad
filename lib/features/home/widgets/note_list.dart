@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
@@ -7,7 +5,6 @@ import 'package:notepad/core/constants/ui_constants.dart';
 import 'package:notepad/core/data/app_data.dart';
 import 'package:notepad/features/note/data/note_repository.dart';
 import 'package:notepad/main.dart';
-import 'package:notepad/features/note/services/note_document_service.dart';
 import 'package:notepad/features/note/services/note_text_utils.dart';
 import 'package:notepad/core/theme/app_colors.dart';
 
@@ -244,7 +241,6 @@ class _NoteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
 
     /// Responsive preview density:
@@ -304,131 +300,88 @@ class _NoteCard extends StatelessWidget {
                   ),
             borderRadius: BorderRadius.circular(_cardRadius),
           ),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment
-                  .stretch, // Stretches columns to full height
-              children: [
-                /// Selection indicator
-                AnimatedSwitcher(
-                  duration: UIConstants.animationFast,
-                  transitionBuilder: (child, animation) =>
-                      ScaleTransition(scale: animation, child: child),
-                  child: isSelectionMode
-                      ? Padding(
-                          padding: const EdgeInsets.only(
-                            right: UIConstants.paddingMD,
-                          ),
-                          child: Icon(
-                            note.isSelected
-                                ? Icons.check_circle
-                                : Icons.radio_button_unchecked,
-                            color: note.isSelected
-                                ? colorScheme.primary.withValues(alpha: 0.6)
-                                : Colors.grey,
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-
-                // LEFT SIDE: The content column
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        note.title.isEmpty ? 'Untitled note' : note.title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: UIConstants.noteCardTitleFontSize,
+          child: Row(
+            children: [
+              /// Selection indicator
+              AnimatedSwitcher(
+                duration: UIConstants.animationFast,
+                transitionBuilder: (child, animation) =>
+                    ScaleTransition(scale: animation, child: child),
+                child: isSelectionMode
+                    ? Padding(
+                        padding: const EdgeInsets.only(
+                          right: UIConstants.paddingMD,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-
-                      const SizedBox(height: UIConstants.paddingXS),
-
-                      Text(
-                        'Edited: ${_formatTimestamp(note.updatedAt)}',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: UIConstants.noteCardEditedFontSize,
+                        child: Icon(
+                          note.isSelected
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          color: note.isSelected
+                              ? colorScheme.primary.withValues(alpha: 0.6)
+                              : Colors.grey,
                         ),
-                      ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
 
-                      const SizedBox(height: UIConstants.paddingSM),
-
-                      /// Preview lines loop
-                      ...previewLines.map(
-                        (line) => _PreviewLine(line: line, width: screenWidth),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // RIGHT SIDE: The action column
-                Column(
-                  mainAxisAlignment: MainAxisAlignment
-                      .spaceBetween, // Uses SizedBox for precise gaps
+              // LEFT SIDE: The content column
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    /// Pin toggle
-                    AnimatedScale(
-                      scale: note.isPinned ? UIConstants.pinnedScale : 1.0,
-                      duration: UIConstants.animationFast,
-                      child: IconButton(
-                        icon: Icon(
-                          note.isPinned
-                              ? Icons.push_pin
-                              : Icons.push_pin_outlined,
-                          size: UIConstants.iconSM,
-                          color: colorScheme.primary.withValues(alpha: 0.6),
-                        ),
-                        onPressed: onPin,
+                    Text(
+                      note.title.isEmpty ? 'Untitled note' : note.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: UIConstants.noteCardTitleFontSize,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    const SizedBox(height: UIConstants.paddingXS),
+
+                    Text(
+                      'Edited: ${_formatTimestamp(note.updatedAt)}',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: UIConstants.noteCardEditedFontSize,
                       ),
                     ),
 
-                    /// Export to PDF
-                    IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      icon: Icon(
-                        Icons.picture_as_pdf,
-                        size: UIConstants.iconSM,
-                        color: isDark
-                            ? Colors.white70
-                            : colorScheme.onSurfaceVariant,
-                      ),
-                      onPressed: () async {
-                        isSavingNotifier.value = true;
-                        try {
-                          final List<dynamic> richData =
-                              note.richContent.isNotEmpty
-                              ? jsonDecode(note.richContent)
-                              : NoteDocumentService.decodeRichContent(
-                                  '',
-                                  note.content,
-                                );
-                          await NoteDocumentService.saveNoteAsPdf(
-                            title: note.title,
-                            richContent: richData,
-                          );
-                        } catch (e) {
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              duration: UIConstants.snackbarShort,
-                              content: Text('Could not export PDF: $e'),
-                            ),
-                          );
-                        } finally {
-                          isSavingNotifier.value = false;
-                        }
-                      },
+                    const SizedBox(height: UIConstants.paddingSM),
+
+                    /// Preview lines loop
+                    ...previewLines.map(
+                      (line) => _PreviewLine(line: line, width: screenWidth),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+
+              // RIGHT SIDE: The action column
+              Column(
+                mainAxisAlignment: MainAxisAlignment
+                    .spaceBetween, // Uses SizedBox for precise gaps
+                children: [
+                  /// Pin toggle
+                  AnimatedScale(
+                    scale: note.isPinned ? UIConstants.pinnedScale : 1.0,
+                    duration: UIConstants.animationFast,
+                    child: IconButton(
+                      icon: Icon(
+                        note.isPinned
+                            ? Icons.push_pin
+                            : Icons.push_pin_outlined,
+                        size: UIConstants.iconSM,
+                        color: colorScheme.primary.withValues(alpha: 0.6),
+                      ),
+                      onPressed: onPin,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

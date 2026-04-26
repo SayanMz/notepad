@@ -1,5 +1,3 @@
-// (imports unchanged)
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart';
@@ -215,33 +213,11 @@ class _NotePageState extends State<NotePage> {
         // -------------------------------------------------------------------
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(kToolbarHeight),
-          child: ListenableBuilder(
-            listenable: contentController,
-
-            /// Rebuild only when editor state changes
-            builder: (context, child) {
-              return NoteAppBar(
-                isEditing: _isEditing,
-                onToggleEdit: _toggleEditMode,
-
-                /// Undo / Redo actions
-                onUndo: () {
-                  if (contentController.hasUndo) {
-                    contentController.undo();
-                  }
-                },
-                onRedo: () {
-                  if (contentController.hasRedo) {
-                    contentController.redo();
-                  }
-                },
-
-                canUndo: contentController.hasUndo,
-                canRedo: contentController.hasRedo,
-                saveState: _noteController.saveState,
-                contentController: contentController,
-              );
-            },
+          child: NoteAppBar(
+            saveState: _noteController.saveState,
+            contentController: contentController,
+            title: titleController,
+            isDark: isDark,
           ),
         ),
 

@@ -251,7 +251,7 @@ class _HomePageState extends State<HomePage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return PopScope(
-      /// Prevent back navigation during selection mode
+      /// Prevents exit through system back navigation during selection mode for 1st time
       canPop: !isSelectionMode,
 
       /// Back button exits selection mode instead of leaving page

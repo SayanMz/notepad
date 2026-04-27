@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:notepad/core/data/app_settings_repository.dart';
@@ -31,10 +33,7 @@ final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
 Timer? _rootSnackBarTimer;
 
 /// Shows a snackbar through the app-wide messenger and resets any pending hide timer.
-void showRootSnackBar(
-  SnackBar snackBar, {
-  Duration? autoHideAfter,
-}) {
+void showRootSnackBar(SnackBar snackBar, {Duration? autoHideAfter}) {
   final messenger = rootScaffoldMessengerKey.currentState;
   if (messenger == null) return;
 
@@ -56,6 +55,7 @@ void showRootSnackBar(
 Future<void> main() async {
   /// Bootstraps the Flutter application.
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env"); // Loads secret key
   await Hive.initFlutter();
 
   Hive.registerAdapter(NotesSectionAdapter());
@@ -152,6 +152,14 @@ class MyApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             FlutterQuillLocalizations.delegate,
           ],
+          scrollBehavior: const MaterialScrollBehavior().copyWith(
+            // Explicitly allow mouse dragging in note_toolbar
+            dragDevices: {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.mouse,
+              PointerDeviceKind.stylus,
+            },
+          ),
         );
       },
     );

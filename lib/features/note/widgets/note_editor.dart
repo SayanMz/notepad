@@ -20,6 +20,22 @@ class NoteEditor extends StatefulWidget {
 }
 
 class _NoteEditorState extends State<NoteEditor> {
+  Future<LinkMenuAction> _handleLinkActionPicker(
+    BuildContext context,
+    String link,
+    Node node,
+  ) async {
+    final normalizedLink = link.trim();
+    final uri = Uri.tryParse(normalizedLink);
+
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return LinkMenuAction.none;
+    }
+
+    return LinkMenuAction.launch;
+  }
+
   @override
   Widget build(BuildContext context) {
     return QuillEditor(
@@ -28,11 +44,12 @@ class _NoteEditorState extends State<NoteEditor> {
       scrollController: widget.scrollController,
       config: QuillEditorConfig(
         onLaunchUrl: (String url) async {
-          final uri = Uri.parse(url);
-          if (await canLaunchUrl(uri)) {
+          final uri = Uri.tryParse(url);
+          if (uri != null && await canLaunchUrl(uri)) {
             await launchUrl(uri, mode: LaunchMode.externalApplication);
           }
         },
+        linkActionPickerDelegate: _handleLinkActionPicker,
         expands: true,
         padding: EdgeInsets.symmetric(
           horizontal: UIConstants.editorHorizontalPadding,

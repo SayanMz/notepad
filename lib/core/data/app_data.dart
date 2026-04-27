@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:hive/hive.dart';
+import 'package:notepad/core/services/note_preview_text.dart';
 
 part 'app_data.g.dart';
 
@@ -39,6 +40,27 @@ class NotesSection {
 
   @HiveField(3)
   String richContent;
+
+  // --- MEMOIZATION CACHE ---
+  // This lives in RAM for instant access during scrolling.
+  List<String>? _cachedPreview;
+  String? _lastProcessedContent;
+
+  // Inside NotesSection class in app_data.dart
+
+  List<String> getPreview(int maxLines) {
+    final String sourceData = richContent.isNotEmpty ? richContent : content;
+
+    if (_cachedPreview != null && _lastProcessedContent == sourceData) {
+      return _cachedPreview!.take(maxLines).toList();
+    }
+
+    _lastProcessedContent = sourceData;
+    // Pass the raw JSON to extractor
+    _cachedPreview = extractPreviewLines(sourceData, maxLines: 12);
+
+    return _cachedPreview!.take(maxLines).toList();
+  }
 
   @HiveField(4)
   DateTime createdAt;

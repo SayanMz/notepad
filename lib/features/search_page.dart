@@ -4,7 +4,7 @@ import 'package:notepad/core/constants/ui_constants.dart';
 import 'package:notepad/core/theme/app_colors.dart';
 import 'package:notepad/core/data/app_data.dart';
 import 'package:notepad/features/note/data/note_repository.dart';
-import 'package:notepad/features/note/services/note_text_utils.dart';
+import 'package:notepad/core/services/note_preview_text.dart';
 import 'package:notepad/features/note/note_page.dart';
 
 class SearchPage extends StatefulWidget {

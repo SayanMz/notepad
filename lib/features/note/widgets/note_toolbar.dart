@@ -2,61 +2,236 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:notepad/core/constants/ui_constants.dart';
+import 'package:notepad/core/theme/app_colors.dart';
+import 'package:notepad/main.dart';
 
-class NoteToolbar extends StatelessWidget {
+class NoteToolbar extends StatefulWidget {
   const NoteToolbar({
     super.key,
     required this.controller,
     required this.focusNode,
-    //required this.onConvertToLink,
+    this.shouldNudge = false, // NEW
+    this.onNudgeComplete,
   });
 
   final QuillController controller;
   final FocusNode focusNode;
-  //final Future<void> Function() onConvertToLink;
+  final bool shouldNudge;
+  final VoidCallback? onNudgeComplete;
+
+  @override
+  State<NoteToolbar> createState() => _NoteToolbarState();
+}
+
+class _NoteToolbarState extends State<NoteToolbar> {
+  ColorScheme get colorScheme => Theme.of(context).colorScheme;
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+  late final ScrollController _rowScrollController;
+  late final ScrollController _fontSizeScrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _rowScrollController = ScrollController();
+    _fontSizeScrollController = ScrollController();
+
+    // 2. Trigger the Nudge if requested
+    if (widget.shouldNudge) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _performNudge());
+    }
+  }
+
+  @override
+  void dispose() {
+    _rowScrollController.dispose();
+    _fontSizeScrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _performNudge() async {
+    // Wait for the NotePage's AnimatedSize to finish sliding down
+    // (Adjust this duration if your UIConstants.animationMedium is different)
+    await Future.delayed(UIConstants.animationExtraSlow);
+
+    if (!mounted || !_rowScrollController.hasClients) return;
+
+    // Nudge right
+    await _rowScrollController.animateTo(
+      180.0,
+      duration: UIConstants.animationMedium,
+      curve: Curves.easeOut,
+    );
+
+    if (!mounted || !_rowScrollController.hasClients) return;
+
+    // Snap back
+    await _rowScrollController.animateTo(
+      0.0,
+      duration: UIConstants.animationMedium,
+      curve: Curves.easeIn,
+    );
+
+    // Tell the parent we are done so it never happens again
+    widget.onNudgeComplete?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _buildRawGlassToolbar(context, [
-          _buildRawToggle(context, Icons.format_bold, Attribute.bold),
-          _buildRawToggle(context, Icons.format_italic, Attribute.italic),
-          _buildRawToggle(
-            context,
-            Icons.format_underlined,
-            Attribute.underline,
-          ),
-          _buildRawToggle(
-            context,
-            Icons.format_strikethrough,
-            Attribute.strikeThrough,
-          ),
-        ]),
-        _buildRawGlassToolbar(context, [
-          _buildRawSizeMenu(context),
-          _buildRawColorMenu(context),
-          _buildRawListMenu(context),
-          _buildRawAlignmentMenu(context, controller),
-          // IconButton(
-          //   icon: Icon(
-          //     Icons.link,
-          //     color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
-          //   ),
-          //   onPressed: onConvertToLink,
-          // ),
-        ]),
+        _buildRawGlassToolbar(
+          [
+            _buildRawToggle(Icons.format_bold, Attribute.bold),
+            _buildRawToggle(Icons.format_italic, Attribute.italic),
+            _buildRawToggle(Icons.format_underlined, Attribute.underline),
+            _buildRawToggle(
+              Icons.format_strikethrough,
+              Attribute.strikeThrough,
+            ),
+            _buildCheckboxToggle(),
+          ],
+          isScrollable: true,
+          scrollController: _rowScrollController,
+        ),
+        _buildRawGlassToolbar(
+          [
+            _buildRawSizeMenu(),
+            _buildRawColorMenu(),
+            _buildRawListMenu(),
+            _buildRawAlignmentMenu(widget.controller),
+            IconButton(
+              icon: Icon(
+                Icons.link,
+                color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
+              ),
+              onPressed: () => _convertToHyperlink(context),
+            ),
+          ],
+          isScrollable: true,
+          scrollController: _rowScrollController,
+        ),
         const SizedBox(height: UIConstants.paddingM),
       ],
     );
   }
 
+  // --- HYPERLINK LOGIC ---
+  Future<void> _convertToHyperlink(BuildContext context) async {
+    final selection = widget.controller.selection;
+    int startIndex = selection.baseOffset;
+    int textLength = selection.extentOffset - startIndex;
+
+    String targetUrl = '';
+
+    /// Extract selected or nearby text
+    if (textLength > 0) {
+      targetUrl = widget.controller.document.getPlainText(
+        startIndex,
+        textLength,
+      );
+    } else {
+      final textBefore = widget.controller.document.getPlainText(0, startIndex);
+      final lastSpace = textBefore.lastIndexOf(RegExp(r'\s'));
+      startIndex = lastSpace == -1 ? 0 : lastSpace + 1;
+      textLength = selection.baseOffset - startIndex;
+
+      if (textLength <= 0) return;
+      targetUrl = widget.controller.document.getPlainText(
+        startIndex,
+        textLength,
+      );
+    }
+
+    /// Validate URL
+    if (!_isValidLink(targetUrl)) {
+      showRootSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.deleteDarkIcon,
+          content: Text('Please enter a valid link'),
+        ),
+      );
+      return;
+    }
+
+    String finalUrl = targetUrl.trim();
+    if (!finalUrl.toLowerCase().startsWith('http://') &&
+        !finalUrl.toLowerCase().startsWith('https://')) {
+      finalUrl = 'https://$finalUrl';
+    }
+
+    /// Ask user for display title
+    final displayTitle = await _showLinkTitleDialog(context);
+
+    if (displayTitle != null && displayTitle.isNotEmpty) {
+      const trailingSpace = ' ';
+      final insertedText = '$displayTitle$trailingSpace';
+      widget.controller.replaceText(startIndex, textLength, insertedText, null);
+
+      widget.controller.formatText(
+        startIndex,
+        displayTitle.length,
+        Attribute.fromKeyValue('link', finalUrl),
+      );
+      widget.controller.formatText(
+        startIndex,
+        displayTitle.length,
+        Attribute.fromKeyValue('color', AppColors.hyperlinkHex),
+      );
+      widget.controller.formatText(
+        startIndex,
+        displayTitle.length,
+        Attribute.underline,
+      );
+
+      widget.controller.updateSelection(
+        TextSelection.collapsed(offset: startIndex + insertedText.length),
+        ChangeSource.local,
+      );
+      widget.controller.forceToggledStyle(const Style());
+      widget.focusNode.requestFocus();
+    }
+  }
+
+  bool _isValidLink(String text) {
+    return RegExp(
+      r'^(https?://)?([\w-]+\.)+[\w-]+(/[\w- ./?%&=]*)?$',
+    ).hasMatch(text.trim());
+  }
+
+  Future<String?> _showLinkTitleDialog(BuildContext context) {
+    final textController = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enter Hyperlink Title'),
+        content: TextField(
+          controller: textController,
+          decoration: const InputDecoration(
+            hintText: 'e.g., Google or My Website',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, textController.text),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // --- UI Helpers for Styling Bar ---
-
-  Widget _buildRawGlassToolbar(BuildContext context, List<Widget> children) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
+  Widget _buildRawGlassToolbar(
+    List<Widget> children, {
+    bool isScrollable = false,
+    ScrollController? scrollController,
+  }) {
     return Container(
       margin: const EdgeInsets.fromLTRB(
         UIConstants.toolbarMarginHorizontal,
@@ -88,26 +263,66 @@ class NoteToolbar extends StatelessWidget {
             sigmaX: UIConstants.toolbarBlurSigma,
             sigmaY: UIConstants.toolbarBlurSigma,
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              vertical: UIConstants.toolbarVerticalPadding,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: children,
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Divide by 4 to ensure exactly 4 items fit perfectly
+              final double itemWidth = constraints.maxWidth / 4;
+              final alignedChildren = children
+                  .map(
+                    (child) => SizedBox(
+                      width: itemWidth,
+                      child: Center(child: child),
+                    ),
+                  )
+                  .toList();
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: UIConstants.toolbarVerticalPadding,
+                ),
+                child: isScrollable
+                    ? ShaderMask(
+                        shaderCallback: (Rect rect) {
+                          return const LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black,
+                              Colors.black,
+                              Colors.transparent,
+                            ],
+                            stops: [
+                              0.0,
+                              0.1,
+                              0.9,
+                              1.0,
+                            ], // Fade starts at 85% of the width
+                          ).createShader(rect);
+                        },
+                        blendMode: BlendMode
+                            .dstIn, // Uses the gradient as an alpha mask
+                        child: SingleChildScrollView(
+                          controller: scrollController,
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(children: alignedChildren),
+                        ),
+                      )
+                    : Row(children: alignedChildren),
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  Widget _buildRawToggle(BuildContext context, IconData icon, Attribute attr) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget _buildRawToggle(IconData icon, Attribute attr) {
     return ListenableBuilder(
-      listenable: controller,
+      listenable: widget.controller,
       builder: (context, child) {
-        final isSelected = controller
+        final isSelected = widget.controller
             .getSelectionStyle()
             .attributes
             .containsKey(attr.key);
@@ -121,8 +336,8 @@ class NoteToolbar extends StatelessWidget {
                       : Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           onPressed: () {
-            focusNode.requestFocus();
-            controller.formatSelection(
+            widget.focusNode.requestFocus();
+            widget.controller.formatSelection(
               isSelected ? Attribute.clone(attr, null) : attr,
             );
           },
@@ -131,59 +346,211 @@ class NoteToolbar extends StatelessWidget {
     );
   }
 
-  Widget _buildRawSizeMenu(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colorScheme = Theme.of(context).colorScheme;
-    return MenuAnchor(
-      alignmentOffset: const Offset(-UIConstants.toolbarSizeMenuOffsetX, 0),
-      builder: (context, menuController, child) => IconButton(
-        icon: Icon(
-          Icons.text_fields,
-          color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
-        ),
-        onPressed: () => menuController.isOpen
-            ? menuController.close()
-            : menuController.open(),
-      ),
-      menuChildren: [
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: UIConstants.toolbarSizeMenuHorizontalPadding,
+  Widget _buildRawSizeMenu() {
+    final List<double> standardSizes = [
+      8,
+      9,
+      10,
+      11,
+      12,
+      14,
+      16,
+      18,
+      20,
+      24,
+      28,
+      32,
+      36,
+      48,
+      60,
+      72,
+    ];
+
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, child) {
+        final style = widget.controller.getSelectionStyle();
+        final double currentSize =
+            double.tryParse(
+              style.attributes['size']?.value.toString() ?? '16',
+            ) ??
+            16.0;
+
+        String headingLabel = 'H';
+        if (currentSize == 32.0) {
+          headingLabel = 'H1';
+        } else if (currentSize == 28.0) {
+          headingLabel = 'H2';
+        } else if (currentSize == 24.0) {
+          headingLabel = 'H3';
+        } else if (currentSize == 20.0) {
+          headingLabel = 'H4';
+        }
+
+        return MenuAnchor(
+          alignmentOffset: const Offset(-35, 0),
+          builder: (context, menuController, child) => IconButton(
+            icon: Icon(
+              Icons.text_fields,
+              color: menuController.isOpen
+                  ? Colors.blueAccent
+                  : isDark
+                  ? Colors.white
+                  : colorScheme.onSurfaceVariant,
+            ),
+            onPressed: () => menuController.isOpen
+                ? menuController.close()
+                : menuController.open(),
           ),
-          child: Row(
-            children: [
-              IconButton(
-                icon: Icon(
-                  Icons.text_increase,
-                  color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
-                ),
-                onPressed: () => _changeTextSize(increase: true),
+          menuChildren: [
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 50, maxHeight: 40),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 1. HEADINGS DROPDOWN (Now dropping downwards)
+                  Expanded(
+                    child: MenuAnchor(
+                      // Pushes the menu straight down beneath the button
+                      alignmentOffset: const Offset(-55, 40),
+                      builder: (context, innerMenuController, child) {
+                        return TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: isDark
+                                ? Colors.white
+                                : colorScheme.onSurfaceVariant,
+                            padding: EdgeInsets.zero,
+                          ),
+                          onPressed: () => innerMenuController.isOpen
+                              ? innerMenuController.close()
+                              : innerMenuController.open(),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                headingLabel,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              // Arrow pointing down
+                              const Icon(Icons.arrow_drop_down, size: 18),
+                            ],
+                          ),
+                        );
+                      },
+                      menuChildren: [
+                        _buildHeadingSizeItem('H1 (Title)', 32.0, currentSize),
+                        _buildHeadingSizeItem('H2 (Header)', 28.0, currentSize),
+                        _buildHeadingSizeItem(
+                          'H3 (Subheader)',
+                          24.0,
+                          currentSize,
+                        ),
+                        _buildHeadingSizeItem(
+                          'H4 (Small Header)',
+                          20.0,
+                          currentSize,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  Container(
+                    width: 1,
+                    height: 25,
+                    color: isDark ? Colors.white24 : Colors.black12,
+                  ),
+
+                  // 2. FONT SIZE DROPDOWN (Now dropping downwards)
+                  Expanded(
+                    child: MenuAnchor(
+                      // Pushes the menu straight down beneath the button
+                      alignmentOffset: const Offset(-55, 40),
+                      builder: (context, innerMenuController, child) {
+                        return TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: isDark
+                                ? Colors.white
+                                : colorScheme.onSurfaceVariant,
+                            padding: EdgeInsets.zero,
+                          ),
+                          onPressed: () => innerMenuController.isOpen
+                              ? innerMenuController.close()
+                              : innerMenuController.open(),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '${currentSize.toInt()}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              // Arrow pointing down
+                              const Icon(Icons.arrow_drop_down, size: 18),
+                            ],
+                          ),
+                        );
+                      },
+                      menuChildren: [
+                        SizedBox(
+                          height: 250,
+                          child: Scrollbar(
+                            thumbVisibility: true,
+                            controller: _fontSizeScrollController,
+                            child: SingleChildScrollView(
+                              controller: _fontSizeScrollController,
+                              child: Column(
+                                children: standardSizes.map((size) {
+                                  final bool isSelected = currentSize == size;
+                                  return MenuItemButton(
+                                    onPressed: () => _changeTextSize(size),
+                                    child: Text(
+                                      '${size.toInt()}',
+                                      style: TextStyle(
+                                        color: isSelected
+                                            ? colorScheme.primary
+                                            : null,
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(
-                height: UIConstants.toolbarDividerHeight,
-                child: VerticalDivider(
-                  width: UIConstants.toolbarDividerWidth,
-                  thickness: UIConstants.toolbarDividerThickness,
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.text_decrease,
-                  color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
-                ),
-                onPressed: () => _changeTextSize(increase: false),
-              ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildRawColorMenu(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  // Update the helper to handle the light-up color
+  Widget _buildHeadingSizeItem(String label, double size, double currentSize) {
+    final bool isSelected = currentSize == size;
+    return MenuItemButton(
+      onPressed: () => _changeTextSize(size),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? colorScheme.primary : null,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+    );
+  }
 
+  Widget _buildRawColorMenu() {
     return MenuAnchor(
       alignmentOffset: const Offset(-UIConstants.toolbarColorMenuOffsetX, 0),
       builder: (context, menuController, child) => IconButton(
@@ -216,28 +583,32 @@ class NoteToolbar extends StatelessWidget {
 
   Widget _buildColorCircle(Color color, {bool isDefault = false}) {
     return ListenableBuilder(
-      listenable: controller,
+      listenable: widget.controller,
       builder: (context, child) {
         final hexString = '#${color.toARGB32().toRadixString(16).substring(2)}';
         final bool isSelected = isDefault
-            ? controller.getSelectionStyle().attributes['color'] == null
-            : controller.getSelectionStyle().attributes['color']?.value ==
+            ? widget.controller.getSelectionStyle().attributes['color'] == null
+            : widget.controller
+                      .getSelectionStyle()
+                      .attributes['color']
+                      ?.value ==
                   hexString;
         return GestureDetector(
           onTap: () {
             final colorAttr = isDefault
                 ? Attribute.fromKeyValue('color', null)
                 : ColorAttribute(hexString);
-            if (controller.selection.isCollapsed) {
-              controller.formatSelection(colorAttr);
+            if (widget.controller.selection.isCollapsed) {
+              widget.controller.formatSelection(colorAttr);
             } else {
-              controller.formatText(
-                controller.selection.start,
-                controller.selection.end - controller.selection.start,
+              widget.controller.formatText(
+                widget.controller.selection.start,
+                widget.controller.selection.end -
+                    widget.controller.selection.start,
                 colorAttr,
               );
             }
-            focusNode.requestFocus();
+            widget.focusNode.requestFocus();
           },
           child: Container(
             margin: const EdgeInsets.all(UIConstants.toolbarColorCircleMargin),
@@ -257,20 +628,47 @@ class NoteToolbar extends StatelessWidget {
     );
   }
 
-  Widget _buildRawListMenu(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colorScheme = Theme.of(context).colorScheme;
-
+  Widget _buildCheckboxToggle() {
     return ListenableBuilder(
-      listenable: controller,
+      listenable: widget.controller,
       builder: (context, child) {
-        // Get the current list attribute value (e.g., 'ul' or 'ol')
-        final currentList = controller
+        final currentList = widget.controller
             .getSelectionStyle()
             .attributes['list']
             ?.value;
 
-        final bool isListActive = currentList != null;
+        // Checkboxes have two possible values: 'unchecked' or 'checked'
+        final bool isSelected =
+            currentList == Attribute.unchecked.value ||
+            currentList == Attribute.checked.value;
+
+        return IconButton(
+          icon: Icon(
+            Icons.check_box_outlined,
+            color: isSelected
+                ? Colors
+                      .blueAccent // Turn blue when selected
+                : (isDark ? Colors.white : colorScheme.onSurfaceVariant),
+          ),
+          onPressed: () => _toggleListAttribute(Attribute.unchecked),
+        );
+      },
+    );
+  }
+
+  Widget _buildRawListMenu() {
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, child) {
+        // Get the current list attribute value (e.g., 'ul' or 'ol')
+        final currentList = widget.controller
+            .getSelectionStyle()
+            .attributes['list']
+            ?.value;
+
+        final bool isListActive =
+            currentList == Attribute.ul.value ||
+            currentList == Attribute.ol.value;
 
         return MenuAnchor(
           builder: (context, menuController, child) => IconButton(
@@ -286,7 +684,6 @@ class NoteToolbar extends StatelessWidget {
           ),
           menuChildren: [
             _buildListItem(
-              context,
               Icons.format_list_bulleted,
               'Bullets',
               isDark,
@@ -295,7 +692,6 @@ class NoteToolbar extends StatelessWidget {
               colorScheme,
             ),
             _buildListItem(
-              context,
               Icons.format_list_numbered,
               'Numbers',
               isDark,
@@ -310,7 +706,6 @@ class NoteToolbar extends StatelessWidget {
   }
 
   Widget _buildListItem(
-    BuildContext context,
     IconData icon,
     String label,
     bool isDark,
@@ -344,48 +739,43 @@ class NoteToolbar extends StatelessWidget {
     );
   }
 
-  void _changeTextSize({required bool increase}) {
-    final attrs = controller.getSelectionStyle().attributes;
-    var currentSize = 16.0;
-    if (attrs.containsKey('size')) {
-      currentSize = double.tryParse(attrs['size']!.value.toString()) ?? 16.0;
-    }
-    final newSize = (increase ? currentSize + 5 : currentSize - 5).clamp(
-      15.0,
-      80.0,
-    );
-    final sizeAttr = Attribute.fromKeyValue('size', newSize);
-    if (controller.selection.isCollapsed) {
-      controller.formatSelection(sizeAttr);
+  void _changeTextSize(double exactSize) {
+    final sizeAttr = Attribute.fromKeyValue('size', exactSize);
+
+    if (widget.controller.selection.isCollapsed) {
+      widget.controller.formatSelection(sizeAttr);
     } else {
-      controller.formatText(
-        controller.selection.start,
-        controller.selection.end - controller.selection.start,
+      widget.controller.formatText(
+        widget.controller.selection.start,
+        widget.controller.selection.end - widget.controller.selection.start,
         sizeAttr,
       );
     }
-    focusNode.requestFocus();
+
+    widget.focusNode.requestFocus();
   }
 
   void _toggleListAttribute(Attribute attribute) {
-    focusNode.requestFocus();
+    widget.focusNode.requestFocus();
 
-    final selection = controller.selection;
-    final style = controller.getSelectionStyle();
+    final selection = widget.controller.selection;
+    final style = widget.controller.getSelectionStyle();
     final currentList = style.attributes['list'];
 
     //  STANDARD BEHAVIOR
     if (!selection.isCollapsed) {
       if (currentList?.value == attribute.value) {
-        controller.formatSelection(Attribute.clone(Attribute.list, null));
+        widget.controller.formatSelection(
+          Attribute.clone(Attribute.list, null),
+        );
       } else {
-        controller.formatSelection(attribute);
+        widget.controller.formatSelection(attribute);
       }
       return;
     }
 
     final offset = selection.baseOffset;
-    final line = controller.document.queryChild(offset).node;
+    final line = widget.controller.document.queryChild(offset).node;
 
     if (line != null && line.parent != null) {
       final parent = line.parent!;
@@ -396,18 +786,20 @@ class NoteToolbar extends StatelessWidget {
 
         if (currentList?.value == attribute.value) {
           // Toggle OFF: Remove formatting from the document row
-          controller.formatText(
+          widget.controller.formatText(
             line.documentOffset,
             line.length,
             Attribute.clone(Attribute.list, null),
           );
 
-          controller.formatSelection(Attribute.clone(Attribute.list, null));
+          widget.controller.formatSelection(
+            Attribute.clone(Attribute.list, null),
+          );
         } else {
           // Toggle ON / SWITCH: Apply new list type to the entire document block
-          controller.formatText(blockStart, blockLength, attribute);
+          widget.controller.formatText(blockStart, blockLength, attribute);
 
-          controller.formatSelection(attribute);
+          widget.controller.formatSelection(attribute);
         }
 
         return; // updateSelection is no longer needed, formatSelection handles it
@@ -416,18 +808,13 @@ class NoteToolbar extends StatelessWidget {
 
     // 3. FALLBACK
     if (currentList?.value == attribute.value) {
-      controller.formatSelection(Attribute.clone(Attribute.list, null));
+      widget.controller.formatSelection(Attribute.clone(Attribute.list, null));
     } else {
-      controller.formatSelection(attribute);
+      widget.controller.formatSelection(attribute);
     }
   }
 
-  Widget _buildRawAlignmentMenu(
-    BuildContext context,
-    QuillController controller,
-  ) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
+  Widget _buildRawAlignmentMenu(QuillController controller) {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, child) {
@@ -448,7 +835,6 @@ class NoteToolbar extends StatelessWidget {
           ),
           menuChildren: [
             _buildAlignmentItem(
-              context,
               Icons.format_align_left,
               'left',
               'Left',
@@ -456,7 +842,6 @@ class NoteToolbar extends StatelessWidget {
               currentAlign,
             ),
             _buildAlignmentItem(
-              context,
               Icons.format_align_center,
               'center',
               'Center',
@@ -464,7 +849,6 @@ class NoteToolbar extends StatelessWidget {
               currentAlign,
             ),
             _buildAlignmentItem(
-              context,
               Icons.format_align_right,
               'right',
               'Right',
@@ -478,15 +862,12 @@ class NoteToolbar extends StatelessWidget {
   }
 
   Widget _buildAlignmentItem(
-    BuildContext context,
     IconData icon,
     String value,
     String label,
     bool isDark,
     dynamic currentAlign,
   ) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     final bool isSelected =
         (currentAlign == value) || (currentAlign == null && value == 'left');
 
@@ -497,7 +878,7 @@ class NoteToolbar extends StatelessWidget {
 
     return MenuItemButton(
       leadingIcon: Icon(icon, color: isSelected ? activeColor : defaultColor),
-      onPressed: () => controller.formatSelection(
+      onPressed: () => widget.controller.formatSelection(
         value == 'left'
             ? Attribute.leftAlignment
             : value == 'center'
@@ -508,3 +889,9 @@ class NoteToolbar extends StatelessWidget {
     );
   }
 }
+
+/*
+Interview Note: "I refactored the toolbar into a StatefulWidget to centralize theme data access. 
+By using getters on the State class, I eliminated redundant context passing across my helper methods 
+while ensuring the UI remains reactive to system theme changes."
+*/

@@ -6,8 +6,6 @@ import 'package:notepad/core/data/app_data.dart';
 import 'package:notepad/core/theme/app_colors.dart';
 import 'package:notepad/features/note/data/note_repository.dart';
 import 'package:notepad/main.dart';
-import 'package:notepad/features/note/services/note_text_utils.dart';
-//import 'package:flutter_slidable/flutter_slidable.dart';
 
 import 'selection_toolbar.dart';
 
@@ -205,10 +203,7 @@ class _NoteCard extends StatelessWidget {
         : UIConstants.noteCardPreviewPhoneLines;
 
     /// Extracts formatted preview lines from rich/plain content.
-    final previewLines = extractPreviewLines(
-      note.content,
-      maxLines: maxPreviewLines,
-    );
+    final previewLines = note.getPreview(maxPreviewLines);
 
     return Card(
       margin: EdgeInsets.zero,
@@ -335,19 +330,27 @@ class _PreviewLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    // 1. ADVANCED DETECTION: Uses a RegExp to find markers even with hidden characters
-    // Matches: •, -, *, 1. at the start of the line
+    // Aggressive Regex: Detects bullets, dashes, asterisks, or numbers at start
     final listRegex = RegExp(r'^[\s]*([•\-\*\u2022]|\d+\.)[\s]*(.*)');
     final match = listRegex.firstMatch(line);
 
-    final bool isListLine = match != null;
+    // TRICK: If the Regex fails, we check a second "fallback"
+    // to see if the line just starts with common whitespace markers.
+    final bool isListLine =
+        match != null ||
+        line.trimLeft().startsWith('- ') ||
+        line.trimLeft().startsWith('• ');
 
-    // 2. DATA EXTRACTION: group(2) is the actual text content after the marker
-    final String displayText = isListLine
-        ? (match.group(2) ?? '').trim()
-        : line.trim();
+    String displayText;
+    if (match != null) {
+      displayText = (match.group(2) ?? '').trim();
+    } else if (isListLine) {
+      // Manual strip for fallback detection
+      displayText = line.trimLeft().substring(2).trim();
+    } else {
+      displayText = line.trim();
+    }
 
-    // Safety: If the line is empty and not a list, don't render
     if (displayText.isEmpty && !isListLine) return const SizedBox.shrink();
 
     return Padding(
@@ -357,17 +360,16 @@ class _PreviewLine extends StatelessWidget {
         children: [
           if (isListLine)
             Padding(
-              // Align bullet to the vertical center of the first line
               padding: const EdgeInsets.only(
-                right: UIConstants.noteCardBulletRightPadding,
-                top: UIConstants.noteCardBulletTopPadding,
+                right: UIConstants.noteCardBulletRightPadding, // 10.0
+                top: 7.5, // Slightly adjusted for perfect center-alignment
               ),
               child: Container(
                 width: UIConstants.noteCardBulletSize,
                 height: UIConstants.noteCardBulletSize,
                 decoration: BoxDecoration(
-                  // Using Primary color for the bullet to make it pop on the A55
-                  color: colorScheme.primary.withValues(alpha: 0.6),
+                  // Bumped opacity to 1.0 to ensure it's not "faded" out
+                  color: colorScheme.primary.withValues(alpha: 1.0),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -375,15 +377,12 @@ class _PreviewLine extends StatelessWidget {
           Expanded(
             child: Text(
               displayText,
-              // Responsive line logic for your BCA project
-              maxLines: width > 600 ? 2 : 1,
+              maxLines: width > 1200 ? 12 : (width > 600 ? 2 : 1),
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: Colors.grey[700],
                 fontSize: UIConstants.noteCardPreviewFontSize,
-                height: width < UIConstants.noteCardPreviewMaxWidthBreakpoint
-                    ? UIConstants.noteCardPreviewLineHeightCompact
-                    : UIConstants.noteCardPreviewLineHeightExpanded,
+                height: width > 1200 ? 1.3 : 1.5,
               ),
             ),
           ),
@@ -412,7 +411,7 @@ class _SwipeableNoteItem extends StatefulWidget {
   final bool isDark;
   final bool isSelectionMode;
   final ValueNotifier<bool> isSavingNotifier;
-  final Future<void> Function(String) onOpenNote;
+  final Future<void> Function(String) onOpenNote; //Callback Delegation
   final VoidCallback onSelectionToggle;
   final Future<void> Function(String) onTogglePin;
   final void Function(NotesSection) onDeleted;
@@ -446,7 +445,7 @@ class _SwipeableNoteItemState extends State<_SwipeableNoteItem> {
         builder: (context, constraints) {
           final cardWidth = constraints.maxWidth;
           return Stack(
-            clipBehavior: Clip.none,
+            //clipBehavior: Clip.none,
             children: [
               Positioned(
                 top: 0.5,
@@ -459,7 +458,7 @@ class _SwipeableNoteItemState extends State<_SwipeableNoteItem> {
                   color: widget.isDark
                       ? AppColors.deleteDarkBg
                       : AppColors.deleteLightBg,
-                  clipBehavior: Clip.antiAlias,
+                  //clipBehavior: Clip.antiAlias,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.horizontal(
                       left: Radius.circular(UIConstants.radiusMD - 1.0),
@@ -474,20 +473,38 @@ class _SwipeableNoteItemState extends State<_SwipeableNoteItem> {
                     child: ValueListenableBuilder<double>(
                       valueListenable: _dragProgress,
                       builder: (context, progress, child) {
-                        final draggedPixels = progress * cardWidth;
-                        const iconWidth = UIConstants.iconLG;
-                        const targetPadding = UIConstants.paddingLG;
+                        final draggedPixels =
+                            progress * cardWidth; // Physical distance
+                        const iconWidth = UIConstants.iconLG; // 28.0
+                        const targetPadding = UIConstants.paddingLG; // 16.0
+                        const lockPoint =
+                            (targetPadding * 2) + iconWidth; // 60.0
 
-                        // PHASE 1: Center-Gap Slide
+                        // PHASE 1: Horizontal Slide (Stays the same)
                         double xOffset = (draggedPixels / 2) - (iconWidth / 2);
                         xOffset = xOffset.clamp(
                           double.negativeInfinity,
                           targetPadding,
                         );
 
-                        // The exact pixel mark where the icon locks into place
-                        const lockPoint =
-                            (targetPadding * 2) + iconWidth; // 60.0
+                        // PHASE 2: The Lid Peak (The Real Change)
+                        // We define the area from the lockPoint (60px) to the edge of the screen.
+                        final double activeRange = cardWidth - lockPoint;
+
+                        // How far are we into that "Trash Zone"? (0.0 at 60px, 1.0 at screen edge)
+                        double normalized =
+                            (draggedPixels - lockPoint) / activeRange;
+                        normalized = normalized.clamp(0.0, 1.0);
+
+                        // TRIANGLE WAVE FORMULA: 1.0 - |2x - 1|
+                        // This forces: 0.0 (Closed) -> 0.5 (Fully Open) -> 1.0 (Closed)
+                        final double rawLidProgress =
+                            1.0 - (2.0 * normalized - 1.0).abs();
+
+                        // THE SLAM: Accelerate the closing motion for a "heavy" feel
+                        final double finalLidProgress = Curves.easeIn.transform(
+                          rawLidProgress.clamp(0.0, 1.0),
+                        );
 
                         final scale = (draggedPixels / lockPoint).clamp(
                           0.5,
@@ -498,21 +515,15 @@ class _SwipeableNoteItemState extends State<_SwipeableNoteItem> {
                           1.0,
                         );
 
-                        // PHASE 2: The Lid Pop
-                        // Only starts opening AFTER draggedPixels passes the 60.0 lockPoint.
-                        // Full open is reached 90 pixels after the lockPoint (150px total drag).
-                        final lidProgress = ((draggedPixels - lockPoint) / 90.0)
-                            .clamp(0.0, 1.0);
-
                         return Transform.translate(
                           offset: Offset(xOffset, 0),
                           child: Transform.scale(
                             scale: scale,
                             child: Opacity(
                               opacity: opacity,
-                              // Replace the static Icon with our new Custom Vector!
                               child: _AnimatedTrashIcon(
-                                lidProgress: lidProgress,
+                                lidProgress:
+                                    finalLidProgress, // Now uses the peak math!
                                 color: widget.isDark
                                     ? AppColors.deleteDarkIcon
                                     : AppColors.deleteLightIcon,
@@ -533,7 +544,7 @@ class _SwipeableNoteItemState extends State<_SwipeableNoteItem> {
                     : DismissDirection.startToEnd,
                 background: const ColoredBox(color: Colors.transparent),
 
-                // 3. THE SENSOR: Streams the exact decimal of your thumb position
+                // 3. THE SENSOR: Streams the exact decimal of thumb position
                 onUpdate: (details) {
                   if (!mounted) return;
                   _dragProgress.value = details.progress;
@@ -589,8 +600,7 @@ class _AnimatedTrashIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     // THE PHYSICS: Pure linear vertical lift.
     // As lidProgress goes from 0.0 to 1.0, the lid lifts exactly 4.5 pixels straight up.
-    // Because it is tied to your thumb, swiping backwards naturally pulls it down!
-    final yOffset = lidProgress * -4.5;
+    final yOffset = lidProgress * -5;
 
     return SizedBox(
       width: size,
@@ -625,7 +635,6 @@ class _AnimatedTrashIcon extends StatelessWidget {
           Positioned(
             top: size * 0.15,
             child: Transform.translate(
-              // Only shifting the Y-axis. No rotation, no X-axis shifting.
               offset: Offset(0, yOffset),
               child: Column(
                 mainAxisSize: MainAxisSize.min,

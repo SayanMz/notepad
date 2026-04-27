@@ -11,6 +11,7 @@ import 'package:notepad/features/note/widgets/note_app_bar.dart';
 import 'package:notepad/features/note/widgets/note_editor.dart';
 import 'package:notepad/features/note/widgets/note_header.dart';
 import 'package:notepad/features/note/widgets/note_toolbar.dart';
+import 'package:notepad/main.dart';
 
 /// ---------------------------------------------------------------------------
 /// NOTE PAGE (EDITOR SCREEN)
@@ -73,6 +74,51 @@ class _NotePageState extends State<NotePage> {
 
   /// UI-only state → toggles toolbar visibility
   bool _isEditing = false;
+  bool _hasNudgedToolbar = false; //Track the Nudge
+
+  /// --- VOICE AI TESTING STATE ---
+
+  /// Dialog to type out the voice command manually
+  Future<void> _showVoiceSimulatorDialog() async {
+    final simulatorController = TextEditingController();
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Simulate Voice Command'),
+        content: TextField(
+          controller: simulatorController,
+          decoration: const InputDecoration(
+            hintText: 'e.g., Make the dogs red',
+          ),
+          autofocus: true,
+          onSubmitted: (val) => Navigator.pop(context, val),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, simulatorController.text),
+            child: const Text('Execute'),
+          ),
+        ],
+      ),
+    );
+
+    // DELEGATE TO CONTROLLER
+    if (result != null && result.isNotEmpty) {
+      final feedback = await _noteController.processVoiceCommand(
+        commandText: result,
+        controller: contentController,
+      );
+
+      if (feedback != null && mounted) {
+        showRootSnackBar(SnackBar(content: Text(feedback)));
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -241,7 +287,12 @@ class _NotePageState extends State<NotePage> {
                         child: NoteToolbar(
                           controller: contentController,
                           focusNode: _editorFocusNode,
-                          // onConvertToLink: _convertToHyperlink,
+                          shouldNudge: !_hasNudgedToolbar,
+                          onNudgeComplete: () {
+                            if (mounted) {
+                              setState(() => _hasNudgedToolbar = true);
+                            }
+                          },
                         ),
                       )
                     : const SizedBox.shrink(),
@@ -278,137 +329,28 @@ class _NotePageState extends State<NotePage> {
             ],
           ),
         ),
+        floatingActionButton: ValueListenableBuilder<bool>(
+          valueListenable: _noteController.isProcessingVoice,
+          builder: (context, isProcessing, _) {
+            return FloatingActionButton(
+              onPressed: isProcessing ? null : _showVoiceSimulatorDialog,
+              backgroundColor: AppColors.amber,
+              child: isProcessing
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(Icons.mic),
+            );
+          },
+        ),
       ),
     );
   }
-
-  // -------------------------------------------------------------------------
-  // HYPERLINK FEATURE -- DISABLED
-  // -------------------------------------------------------------------------
-  ///
-  /// Converts selected text into a clickable hyperlink.
-  ///
-  /// NOTE:
-  /// - Kept inside UI because it requires dialogs + SnackBars
-  //Future<void> _convertToHyperlink() async {
-  //   final selection = contentController.selection;
-
-  //   int startIndex = selection.baseOffset;
-  //   int textLength = selection.extentOffset - startIndex;
-
-  //   String targetUrl = '';
-
-  //   /// Extract selected or nearby text
-  //   if (textLength > 0) {
-  //     targetUrl = contentController.document.getPlainText(
-  //       startIndex,
-  //       textLength,
-  //     );
-  //   } else {
-  //     final textBefore = contentController.document.getPlainText(0, startIndex);
-
-  //     final lastSpace = textBefore.lastIndexOf(RegExp(r'\s'));
-
-  //     startIndex = lastSpace == -1 ? 0 : lastSpace + 1;
-  //     textLength = selection.baseOffset - startIndex;
-
-  //     if (textLength <= 0) return;
-
-  //     targetUrl = contentController.document.getPlainText(
-  //       startIndex,
-  //       textLength,
-  //     );
-  //   }
-
-  //   /// Validate URL
-  //   if (!_isValidLink(targetUrl)) {
-  //     if (mounted) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         const SnackBar(
-  //           backgroundColor: AppColors.deleteDarkIcon,
-  //           content: Text('Please enter a valid link'),
-  //         ),
-  //       );
-  //     }
-  //     return;
-  //   }
-  //   //Ensure the link has a valid web protocol
-  //   String finalUrl = targetUrl.trim();
-  //   if (!finalUrl.toLowerCase().startsWith('http://') &&
-  //       !finalUrl.toLowerCase().startsWith('https://')) {
-  //     finalUrl = 'https://$finalUrl';
-  //   }
-
-  //   /// Ask user for display title
-  //   final displayTitle = await _showLinkTitleDialog();
-
-  //   if (displayTitle != null && displayTitle.isNotEmpty) {
-  //     const trailingSpace = ' ';
-  //     final insertedText = '$displayTitle$trailingSpace';
-  //     contentController.replaceText(startIndex, textLength, insertedText, null);
-
-  //     contentController.formatText(
-  //       startIndex,
-  //       displayTitle.length,
-  //       Attribute.fromKeyValue('link', finalUrl),
-  //     );
-  //     contentController.formatText(
-  //       startIndex,
-  //       displayTitle.length,
-  //       Attribute.fromKeyValue('color', AppColors.hyperlinkHex),
-  //     );
-  //     contentController.formatText(
-  //       startIndex,
-  //       displayTitle.length,
-  //       Attribute.underline,
-  //     );
-
-  //     final nextCursorPosition = startIndex + insertedText.length;
-  //     contentController.updateSelection(
-  //       TextSelection.collapsed(offset: nextCursorPosition),
-  //       ChangeSource.local,
-  //     );
-  //     contentController.forceToggledStyle(const Style());
-
-  //     _editorFocusNode.requestFocus();
-  //   }
-  // }
-
-  /// Simple URL validation
-  // bool _isValidLink(String text) {
-  //   return RegExp(
-  //     r'^(https?://)?([\w-]+\.)+[\w-]+(/[\w- ./?%&=]*)?$',
-  //   ).hasMatch(text.trim());
-  // }
-
-  /// Dialog to enter hyperlink title
-  // Future<String?> _showLinkTitleDialog() {
-  //   final controller = TextEditingController();
-
-  //   return showDialog<String>(
-  //     context: context,
-  //     builder: (context) => AlertDialog(
-  //       title: const Text('Enter Hyperlink Title'),
-  //       content: TextField(
-  //         controller: controller,
-  //         decoration: const InputDecoration(
-  //           hintText: 'e.g., Google or My Website',
-  //         ),
-  //         autofocus: true,
-  //       ),
-  //       actions: [
-  //         TextButton(
-  //           onPressed: () => Navigator.pop(context),
-  //           child: const Text('Cancel'),
-  //         ),
-  //         ElevatedButton(
-  //           onPressed: () => Navigator.pop(context, controller.text),
-  //           child: const Text('OK'),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
 }
 
 /// ---------------------------------------------------------------------------

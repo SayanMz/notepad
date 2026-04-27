@@ -95,7 +95,10 @@ class _NoteAppBarState extends State<NoteAppBar> {
           alignmentOffset: const Offset(0, 8),
           builder: (context, menuController, child) {
             return IconButton(
-              icon: const Icon(Icons.more_vert, color: Colors.blueAccent),
+              icon: Icon(
+                Icons.more_vert,
+                color: widget.isDark ? Colors.white : Colors.blue,
+              ),
               onPressed: () => menuController.isOpen
                   ? menuController.close()
                   : menuController.open(),

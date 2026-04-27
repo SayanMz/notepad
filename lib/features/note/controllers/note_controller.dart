@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter/foundation.dart';
 import 'package:notepad/core/constants/ui_constants.dart';
+import 'package:notepad/core/services/groq_service.dart';
 import 'package:notepad/features/note/data/note_repository.dart';
 import 'package:notepad/features/note/services/note_recovery_service.dart';
 import 'package:notepad/features/note/widgets/save_indicator.dart';
@@ -15,6 +16,12 @@ import 'package:notepad/features/note/widgets/save_indicator.dart';
 class NoteController {
   final NoteRecoveryService recoveryService;
   final NoteRepository noteRepository;
+
+  NoteController({
+    required this.recoveryService,
+    required this.noteRepository,
+    this.noteId,
+  });
 
   Timer? _autosaveDebounce;
   bool _isDisposed = false;
@@ -28,12 +35,6 @@ class NoteController {
     SaveState.idle,
   );
   String? _lastEditorSignature;
-
-  NoteController({
-    required this.recoveryService,
-    required this.noteRepository,
-    this.noteId,
-  });
 
   /// Called whenever editor content changes
   ///
@@ -144,6 +145,93 @@ class NoteController {
     }
 
     saveNote(title: title, document: document);
+  }
+
+  /// State for the voice processing spinner
+  final ValueNotifier<bool> isProcessingVoice = ValueNotifier<bool>(false);
+
+  /// Handles AI voice command parsing and document formatting.
+  /// Returns a feedback string for the UI to display in a SnackBar.
+  Future<String?> processVoiceCommand({
+    required String commandText,
+    required QuillController controller,
+  }) async {
+    if (commandText.isEmpty) return null;
+
+    isProcessingVoice.value = true;
+
+    try {
+      // 1. Get instructions from AI
+      final instructions = await GroqService.parseVoiceCommand(commandText);
+
+      if (instructions == null || instructions.isEmpty) {
+        return 'AI did not find any formatting commands.';
+      }
+
+      // 2. Prepare for search
+      final fullText = controller.document.toPlainText().toLowerCase();
+      bool didApplyFormat = false;
+
+      // 3. Apply formatting instructions
+      // ... inside processVoiceCommand ...
+
+      for (var instruction in instructions) {
+        final target = instruction['target']?.toString().toLowerCase() ?? '';
+        final action = instruction['action']?.toString() ?? '';
+        final colorHex = instruction['value']?.toString();
+
+        if (target.isEmpty) continue;
+
+        int startIndex = 0;
+
+        // Use a while loop to find and format ALL occurrences, not just the first one
+        while (true) {
+          startIndex = fullText.indexOf(target, startIndex);
+
+          // Stop if no more occurrences are found
+          if (startIndex == -1) break;
+
+          final length = target.length;
+          didApplyFormat = true;
+
+          switch (action) {
+            case 'bold':
+              controller.formatText(startIndex, length, Attribute.bold);
+              break;
+            case 'italic':
+              controller.formatText(startIndex, length, Attribute.italic);
+              break;
+            case 'underline': // ADDED
+              controller.formatText(startIndex, length, Attribute.underline);
+              break;
+            case 'color': // NEW DYNAMIC CASE
+              if (colorHex != null && colorHex.startsWith('#')) {
+                controller.formatText(
+                  startIndex,
+                  length,
+                  ColorAttribute(colorHex), // Apply the AI-generated Hex
+                );
+              }
+              break;
+            case 'list_bullet': // ADDED
+              // Note: Lists are block attributes, we apply to the line range
+              controller.formatText(startIndex, length, Attribute.ul);
+              break;
+          }
+
+          // Move search index forward to avoid infinite loop on same word
+          startIndex += length;
+        }
+      }
+
+      return didApplyFormat
+          ? 'Voice formatting applied!'
+          : 'Could not find those exact words in the note.';
+    } catch (e) {
+      return 'Voice Error: $e';
+    } finally {
+      isProcessingVoice.value = false;
+    }
   }
 
   void dispose() {

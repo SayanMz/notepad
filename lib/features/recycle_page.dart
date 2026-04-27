@@ -6,6 +6,7 @@ import 'package:notepad/core/data/app_data.dart';
 import 'package:notepad/core/theme/app_colors.dart';
 import 'package:notepad/features/note/data/note_repository.dart';
 import 'package:notepad/main.dart';
+import 'dart:math';
 
 class RecyclePage extends StatefulWidget {
   const RecyclePage({super.key});
@@ -195,7 +196,7 @@ class _SwipeableRestoreItemState extends State<_SwipeableRestoreItem> {
           final cardWidth = constraints.maxWidth;
 
           return Stack(
-            clipBehavior: Clip.none,
+            // clipBehavior: Clip.none,
             children: [
               // --- THE PERMANENT GREEN BACKGROUND ---
               Positioned(
@@ -206,9 +207,9 @@ class _SwipeableRestoreItemState extends State<_SwipeableRestoreItem> {
                 child: Card(
                   margin: EdgeInsets.zero,
                   elevation: 0,
-                  clipBehavior: Clip.antiAlias,
+                  //clipBehavior: Clip.antiAlias,
                   color: widget.isDark
-                      ? Colors.green.withValues(alpha: 0.2)
+                      ? const Color(0xFF003D33) // Deep Emerald
                       : const Color(0xFFC8E6C9),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.horizontal(
@@ -249,13 +250,13 @@ class _SwipeableRestoreItemState extends State<_SwipeableRestoreItem> {
                         );
 
                         // 2. THE WHEEL PHYSICS (Clamped Rotation)
-                        // Tracks exactly when the icon hits the 60px lockPoint, capping at 1.0.
+                        // Tracks exactly when the icon hits the 60px lockPoint, capping at 2.0.
                         final rotationProgress = (draggedPixels / lockPoint)
                             .clamp(0.0, 2.0);
 
                         // Rotates exactly 180 degrees (-3.14 radians) and stops dead.
                         // If you want a smaller rotation, change -3.14 to -1.57 (90 degrees).
-                        final angle = rotationProgress * -3.14;
+                        final angle = rotationProgress * pi;
 
                         return Transform.translate(
                           offset: Offset(xOffset, 0),
@@ -268,7 +269,7 @@ class _SwipeableRestoreItemState extends State<_SwipeableRestoreItem> {
                                 child: Icon(
                                   Icons.restore,
                                   color: widget.isDark
-                                      ? Colors.greenAccent
+                                      ? const Color(0xFF69F0AE) // Soft Mint
                                       : const Color(0xFF2E7D32),
                                   size: UIConstants.recycleIconSize,
                                 ),
@@ -299,7 +300,7 @@ class _SwipeableRestoreItemState extends State<_SwipeableRestoreItem> {
                 child: Card(
                   margin: EdgeInsets.zero,
                   elevation: UIConstants.elevationLow,
-                  clipBehavior: Clip.antiAlias,
+                  //clipBehavior: Clip.antiAlias,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(
                       UIConstants.recycleCardRadius,
@@ -331,7 +332,10 @@ class _SwipeableRestoreItemState extends State<_SwipeableRestoreItem> {
                     trailing: IconButton(
                       onPressed: () =>
                           widget.onShowActionSheet(context, widget.note),
-                      icon: const Icon(Icons.more_vert),
+                      icon: Icon(
+                        Icons.more_vert,
+                        color: widget.isDark ? Colors.white : Colors.blue,
+                      ),
                     ),
                     onLongPress: HapticFeedback.mediumImpact,
                   ),

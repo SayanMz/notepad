@@ -1,6 +1,10 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart';
+import 'package:lottie/lottie.dart';
 import 'package:notepad/core/constants/ui_constants.dart';
 import 'package:notepad/core/theme/app_colors.dart';
 import 'package:notepad/features/note/data/note_repository.dart';
@@ -11,6 +15,8 @@ import 'package:notepad/features/note/widgets/note_app_bar.dart';
 import 'package:notepad/features/note/widgets/note_editor.dart';
 import 'package:notepad/features/note/widgets/note_header.dart';
 import 'package:notepad/features/note/widgets/note_toolbar.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:notepad/main.dart';
 
 /// ---------------------------------------------------------------------------
@@ -53,7 +59,35 @@ class NotePage extends StatefulWidget {
   State<NotePage> createState() => _NotePageState();
 }
 
-class _NotePageState extends State<NotePage> {
+class _NotePageState extends State<NotePage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _lottieController;
+
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  Timer? _speechTimer;
+  bool _isListening = false;
+  String _lastWords = '';
+
+  final FlutterTts _tts = FlutterTts();
+  final Random _random = Random();
+
+  // Blending your requested phrases with a slightly more "Professional" tone
+  final List<String> _successPhrases = [
+    "Here it is.",
+    "Done.",
+    "Awesome.",
+    "Got it.",
+    "All set.",
+    "Formatting applied.",
+  ];
+
+  final List<String> _failurePhrases = [
+    "Sorry! I didn't understand.",
+    "I didn't quite catch that.",
+    "Hmm, try rephrasing that command?",
+    "I couldn't find a match for that.",
+  ];
+
   /// Listens to app lifecycle (background, pause, etc.)
   late final AppLifecycleListener _lifecycleListener;
 
@@ -76,53 +110,143 @@ class _NotePageState extends State<NotePage> {
   bool _isEditing = false;
   bool _hasNudgedToolbar = false; //Track the Nudge
 
-  /// --- VOICE AI TESTING STATE ---
+  /// --- VOICE AI LOGIC ---
 
-  /// Dialog to type out the voice command manually
-  Future<void> _showVoiceSimulatorDialog() async {
-    final simulatorController = TextEditingController();
+  void _initSpeech() async {
+    try {
+      await _speech.initialize(debugLogging: true);
+      List<dynamic> voices = await _tts.getVoices;
 
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Simulate Voice Command'),
-        content: TextField(
-          controller: simulatorController,
-          decoration: const InputDecoration(
-            hintText: 'e.g., Make the dogs red',
-          ),
-          autofocus: true,
-          onSubmitted: (val) => Navigator.pop(context, val),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, simulatorController.text),
-            child: const Text('Execute'),
-          ),
-        ],
-      ),
-    );
+      // 1. The Priority List (Deepest & most professional voices first)
+      final preferredVoices = [
+        'en-us-x-iom-network', // Deepest US Male (Closest to ChatGPT Cove)
+        'en-us-x-sfg-network', // Standard US Male
+        'en-gb-x-rjs-network', // Professional UK Male
+        'en-in-x-ene-network', // Regional Indian Male (Safeguard)
+      ];
 
-    // DELEGATE TO CONTROLLER
-    if (result != null && result.isNotEmpty) {
+      Map<String, String>? selectedVoice;
+
+      // 2. Safe iteration avoids Dart's null-safety crashes
+      for (String preferredName in preferredVoices) {
+        for (var v in voices) {
+          final voiceName = v['name'].toString().trim().toLowerCase();
+
+          if (voiceName == preferredName) {
+            // Explicitly cast to String to prevent platform channel errors
+            selectedVoice = {
+              "name": v['name'].toString(),
+              "locale": v['locale'].toString(),
+            };
+            break;
+          }
+        }
+        if (selectedVoice != null)
+          break; // Stop searching once the highest priority is found
+      }
+
+      // 3. Apply the Voice
+      if (selectedVoice != null) {
+        await _tts.setVoice(selectedVoice);
+        debugPrint("SUCCESS: Forced Voice to -> ${selectedVoice['name']}");
+      } else {
+        // Fallback if offline
+        debugPrint("FAILED: Network voices missing. Trying local default.");
+        await _tts.setLanguage("en-US");
+      }
+
+      // 4. Tone Tuning (ChatGPT Professional Vibe)
+      await _tts.setSpeechRate(0.45); // Calm pacing
+      await _tts.setPitch(0.85); // Deepens the tone
+      await _tts.setVolume(1.0);
+    } catch (e) {
+      debugPrint("Speech init error: $e");
+    }
+  }
+
+  void _toggleListening() async {
+    if (_isListening) {
+      _cleanupListening(cancelRobot: true);
+      return;
+    }
+
+    if (await _speech.initialize()) {
+      // UI State: Update once to show we are listening
+      setState(() => _isListening = true);
+      _noteController.isProcessingVoice.value = true;
+      _lastWords = '';
+
+      _speech.listen(
+        onResult: (result) {
+          // OPTIMIZATION: Update variable directly.
+          // Stops the entire editor from rebuilding per word.
+          _lastWords = result.recognizedWords;
+          debugPrint("LOG: $_lastWords");
+
+          // Windows Stability Debouncer
+          _speechTimer?.cancel();
+          _speechTimer = Timer(const Duration(milliseconds: 1000), () {
+            if (_lastWords.trim().isNotEmpty) {
+              _cleanupListening();
+              _handleCommand(_lastWords);
+            }
+          });
+        },
+      );
+    } else {
+      _noteController.isProcessingVoice.value = false;
+    }
+  }
+
+  void _cleanupListening({bool cancelRobot = false}) {
+    _speechTimer?.cancel();
+    _speech.stop();
+    if (mounted) setState(() => _isListening = false);
+    if (cancelRobot) _noteController.isProcessingVoice.value = false;
+  }
+
+  Future<void> _handleCommand(String command) async {
+    // Robot continues to move during the AI thinking phase
+    _noteController.isProcessingVoice.value = true;
+
+    // Platform thread safety for Windows
+    Future.microtask(() async {
       final feedback = await _noteController.processVoiceCommand(
-        commandText: result,
+        commandText: command,
         controller: contentController,
       );
 
-      if (feedback != null && mounted) {
+      // AI finished thinking -> Robot stops
+      _noteController.isProcessingVoice.value = false;
+      // SUCCESS CASE
+      if (feedback == 'Formatting applied!') {
+        // 1. PHYSICAL FEEDBACK
+        HapticFeedback.mediumImpact();
+
+        // 2. SPOKEN FEEDBACK (Randomized)
+        final phrase = _successPhrases[_random.nextInt(_successPhrases.length)];
+        await _tts.speak(phrase);
+        // FAILURE CASE
+      } else if (feedback == 'No matches found.') {
+        // Option: Neutral haptic here if desired
+        HapticFeedback.selectionClick();
+
+        final phrase = _failurePhrases[_random.nextInt(_failurePhrases.length)];
+        await _tts.speak(phrase);
+        // FATAL ERROR CASE (Keep SnackBar for system/network errors)
+      } else if (feedback != null && mounted) {
+        // Keep SnackBar only for errors or "No matches found"
         showRootSnackBar(SnackBar(content: Text(feedback)));
       }
-    }
+    });
   }
 
   @override
   void initState() {
     super.initState();
+
+    _lottieController = AnimationController(vsync: this);
+    _initSpeech();
 
     // -----------------------------------------------------------------------
     // 1. CONTROLLER INITIALIZATION
@@ -234,6 +358,8 @@ class _NotePageState extends State<NotePage> {
     _lifecycleListener.dispose();
     _noteController.dispose();
 
+    _lottieController.dispose();
+
     super.dispose();
   }
 
@@ -329,25 +455,57 @@ class _NotePageState extends State<NotePage> {
             ],
           ),
         ),
+        // floatingActionButton: ValueListenableBuilder<bool>(
+        //   valueListenable: _noteController.isProcessingVoice,
+        //   builder: (context, isProcessing, _) {
+        //     if (isProcessing) {
+        //       _lottieController.repeat();
+        //     } else {
+        //       _lottieController.stop();
+        //       _lottieController.reset();
+        //     }
+        //     return GestureDetector(
+        //       onTap: isProcessing ? null : _toggleListening,
+
+        //       child: Lottie.asset(
+        //         controller: _lottieController,
+        //         'assets/lotties/Ai_Robot.json',
+        //         onLoaded: (composition) {
+        //           _lottieController.duration = composition.duration;
+        //         },
+        //         height: 80,
+        //         width: 80,
+        //       ),
+        //     );
+        //   },
+        // ),
         floatingActionButton: ValueListenableBuilder<bool>(
           valueListenable: _noteController.isProcessingVoice,
           builder: (context, isProcessing, _) {
-            return FloatingActionButton(
-              onPressed: isProcessing ? null : _showVoiceSimulatorDialog,
-              backgroundColor: AppColors.amber,
-              child: isProcessing
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Icon(Icons.mic),
+            // Animation Trigger
+            if (isProcessing) {
+              if (!_lottieController.isAnimating) _lottieController.repeat();
+            } else {
+              _lottieController.stop();
+              _lottieController.reset();
+            }
+
+            return GestureDetector(
+              // Allow tapping to stop listening, but lock during AI thinking
+              onTap: (isProcessing && !_isListening) ? null : _toggleListening,
+              child: Lottie.asset(
+                'assets/lotties/Ai_Assistant.json',
+                controller: _lottieController,
+                onLoaded: (composition) {
+                  _lottieController.duration = composition.duration;
+                },
+                height: 80,
+                width: 80,
+              ),
             );
           },
         ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       ),
     );
   }

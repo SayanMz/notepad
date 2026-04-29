@@ -388,7 +388,7 @@ class _NoteToolbarState extends State<NoteToolbar> {
         }
 
         return MenuAnchor(
-          alignmentOffset: const Offset(-35, 0),
+          alignmentOffset: const Offset(-15, 0),
           builder: (context, menuController, child) => IconButton(
             icon: Icon(
               Icons.text_fields,

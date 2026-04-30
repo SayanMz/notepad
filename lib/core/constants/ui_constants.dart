@@ -129,7 +129,7 @@ class UIConstants {
   // --- Editor Toolbar Menus ---
   static const double toolbarSizeMenuOffsetX = 35.0;
   static const double toolbarColorMenuOffsetX = 60.0;
-  static const double toolbarMenuWidth = 150.0;
+  static const double toolbarMenuWidth = 150.0 + 40;
   static const double toolbarSizeMenuHorizontalPadding = 7.0;
   static const double toolbarColorCircleSize = 30.0;
   static const double toolbarColorCircleMargin = 6.0;

@@ -71,21 +71,24 @@ class _NotePageState extends State<NotePage>
   final FlutterTts _tts = FlutterTts();
   final Random _random = Random();
 
-  // Blending your requested phrases with a slightly more "Professional" tone
+  // Blending professional efficiency with an encouraging, conversational tone
   final List<String> _successPhrases = [
-    "Here it is.",
-    "Done.",
-    "Awesome.",
-    "Got it.",
-    "All set.",
-    "Formatting applied.",
+    "Awesome! Here it is.",
+    "All set, there you go!",
+    "That's cool, let me handle it.",
+    "You have great artistic instincts! Done.",
+    "Looking good! Formatting applied.",
+    "Consider it done!",
+    "Perfect, applying that right now.",
+    "Got it! Your changes are live.",
   ];
 
   final List<String> _failurePhrases = [
-    "Sorry! I didn't understand.",
-    "I didn't quite catch that.",
-    "Hmm, try rephrasing that command?",
-    "I couldn't find a match for that.",
+    "Sorry, I couldn't find that word in the text.",
+    "I don't support that specific feature just yet!",
+    "Oops, I didn't quite catch that. Could you rephrase?",
+    "Hmm, I couldn't find a match for that command.",
+    "Sorry! I didn't understand. Let's try again.",
   ];
 
   /// Listens to app lifecycle (background, pause, etc.)
@@ -141,8 +144,9 @@ class _NotePageState extends State<NotePage>
             break;
           }
         }
-        if (selectedVoice != null)
+        if (selectedVoice != null) {
           break; // Stop searching once the highest priority is found
+        }
       }
 
       // 3. Apply the Voice

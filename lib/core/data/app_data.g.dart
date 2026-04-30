@@ -23,15 +23,16 @@ class NotesSectionAdapter extends TypeAdapter<NotesSection> {
       richContent: fields[3] as String,
       createdAt: fields[4] as DateTime?,
       updatedAt: fields[5] as DateTime?,
-      isDeleted: fields[6] as bool,
-      isPinned: fields[7] as bool,
+      isDeleted: fields[6] as bool? ?? false,
+      isPinned: fields[7] as bool? ?? false,
+      cardColorValue: fields[8] as int? ?? 0xFFFFFFFF,
     );
   }
 
   @override
   void write(BinaryWriter writer, NotesSection obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -47,7 +48,9 @@ class NotesSectionAdapter extends TypeAdapter<NotesSection> {
       ..writeByte(6)
       ..write(obj.isDeleted)
       ..writeByte(7)
-      ..write(obj.isPinned);
+      ..write(obj.isPinned)
+      ..writeByte(8)
+      ..write(obj.cardColorValue);
   }
 
   @override
@@ -72,7 +75,7 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return AppSettings(
-      isDarkMode: fields[0] as bool,
+      isDarkMode: fields[0] as bool? ?? false,
     );
   }
 

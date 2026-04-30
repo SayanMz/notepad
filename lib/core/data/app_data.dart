@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'dart:ui';
+import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:notepad/core/services/note_preview_text.dart';
 
@@ -25,6 +27,7 @@ class NotesSection {
     this.isDeleted = false,
     this.isSelected = false,
     this.isPinned = false,
+    this.cardColorValue = 0xFFFFFFFF, // Default to white (int)
   }) : id = id ?? generateNoteId(),
        createdAt = createdAt ?? DateTime.now(),
        updatedAt = updatedAt ?? createdAt ?? DateTime.now();
@@ -74,43 +77,54 @@ class NotesSection {
   @HiveField(7)
   bool isPinned;
 
+  @HiveField(8)
+  int cardColorValue;
+
+  // Helper getter/setter to work with Color objects in UI, but it doesn't handle the "Save" or "Notify"
+  Color get cardColor => Color(cardColorValue);
+  set cardColor(Color color) => cardColorValue = color.value;
+
   /// UI-only selection state used by bulk actions.
   bool isSelected;
 
   ///For Cloud Sync and JSON Export
   /// Serializes the note for local storage and export flows.
-  // Map<String, dynamic> toJson() => {
-  //       'id': id,
-  //       'title': title,
-  //       'content': content,
-  //       'richContent': richContent,
-  //       'createdAt': createdAt.toIso8601String(),
-  //       'updatedAt': updatedAt.toIso8601String(),
-  //       'isDeleted': isDeleted,
-  //       'isPinned': isPinned,
-  //     };
 
-  /// Rebuilds a note from stored JSON and keeps older data compatible.
-  // factory NotesSection.fromJson(Map<String, dynamic> json) => NotesSection(
-  //       id: json['id'] as String?,
-  //       title: (json['title'] ?? '') as String,
-  //       content: (json['content'] ?? '') as String,
-  //       richContent: (json['richContent'] ?? '') as String,
-  //       createdAt: _parseDateTime(json['createdAt']),
-  //       updatedAt: _parseDateTime(json['updatedAt']) ??
-  //           _parseDateTime(json['createdAt']),
-  //       isDeleted: json['isDeleted'] ?? false,
-  //       isPinned: json['isPinned'] ?? false,
-  //     );
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'content': content,
+    'richContent': richContent,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    'isDeleted': isDeleted,
+    'isPinned': isPinned,
+    'cardColorValue': cardColorValue,
+  };
+
+  // Rebuilds a note from stored JSON and keeps older data compatible.
+
+  factory NotesSection.fromJson(Map<String, dynamic> json) => NotesSection(
+    id: json['id'] as String?,
+    title: (json['title'] ?? '') as String,
+    content: (json['content'] ?? '') as String,
+    richContent: (json['richContent'] ?? '') as String,
+    createdAt: _parseDateTime(json['createdAt']),
+    updatedAt:
+        _parseDateTime(json['updatedAt']) ?? _parseDateTime(json['createdAt']),
+    isDeleted: json['isDeleted'] ?? false,
+    isPinned: json['isPinned'] ?? false,
+    cardColorValue: json['cardColorValue'] as int? ?? 0xFFFFFFFF,
+  );
 }
 
-/// Converts a stored date string into `DateTime?`.
-// DateTime? _parseDateTime(Object? value) {
-//   if (value is! String || value.isEmpty) {
-//     return null;
-//   }
-//   return DateTime.tryParse(value);
-// }
+// Converts a stored date string into `DateTime?`.
+DateTime? _parseDateTime(Object? value) {
+  if (value is! String || value.isEmpty) {
+    return null;
+  }
+  return DateTime.tryParse(value);
+}
 
 /// Stores app-level preferences such as theme mode.
 /// More settings values will be stored here in future as the app grows

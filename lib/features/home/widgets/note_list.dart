@@ -71,6 +71,8 @@ class NoteList extends StatelessWidget {
                       },
                       onShare: onShare,
                       onDelete: onDeleteSelected,
+                      onColorChanged: (color) =>
+                          noteRepository.updateColorForSelectedNotes(color),
                     ),
 
                   Expanded(
@@ -233,80 +235,99 @@ class _NoteCard extends StatelessWidget {
                   )
                 : null,
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              /// Selection indicator
-              AnimatedSwitcher(
-                duration: UIConstants.animationFast,
-                transitionBuilder: (child, animation) =>
-                    ScaleTransition(scale: animation, child: child),
-                child: isSelectionMode
-                    ? Padding(
-                        padding: const EdgeInsets.only(
-                          right: UIConstants.paddingMD,
-                        ),
-                        child: Icon(
-                          note.isSelected
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          color: note.isSelected
-                              ? colorScheme.primary.withValues(alpha: 0.6)
-                              : Colors.grey,
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-
-              // LEFT SIDE: The content column
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      note.title.isEmpty ? 'Untitled note' : note.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: UIConstants.noteCardTitleFontSize,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. THE NEURAL EDGE INDICATOR
+                AnimatedContainer(
+                  duration: UIConstants.animationMedium,
+                  margin: const EdgeInsets.only(right: UIConstants.paddingMD),
+                  width: 4,
+                  decoration: BoxDecoration(
+                    color: note.cardColor,
+                    borderRadius: BorderRadius.circular(2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: note.cardColor.withValues(alpha: 0.4),
+                        blurRadius: 6,
+                        offset: const Offset(2, 0),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    const SizedBox(height: UIConstants.paddingXS),
-
-                    Text(
-                      'Edited: ${_formatTimestamp(note.updatedAt)}',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: UIConstants.noteCardEditedFontSize,
-                      ),
-                    ),
-
-                    const SizedBox(height: UIConstants.paddingSM),
-
-                    /// Preview lines loop
-                    ...previewLines.map(
-                      (line) => _PreviewLine(line: line, width: screenWidth),
-                    ),
-                  ],
-                ),
-              ),
-
-              // RIGHT SIDE: The Pin
-              AnimatedScale(
-                scale: note.isPinned ? UIConstants.pinnedScale : 1.0,
-                duration: UIConstants.animationFast,
-                child: IconButton(
-                  icon: Icon(
-                    note.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                    size: UIConstants.iconSM,
-                    color: colorScheme.primary.withValues(alpha: 0.6),
+                    ],
                   ),
-                  onPressed: onPin,
                 ),
-              ),
-            ],
+                // 2. The Selection Indicator
+                AnimatedSwitcher(
+                  duration: UIConstants.animationMedium,
+                  transitionBuilder: (child, animation) =>
+                      ScaleTransition(scale: animation, child: child),
+                  child: isSelectionMode
+                      ? Padding(
+                          padding: const EdgeInsets.only(
+                            right: UIConstants.paddingMD,
+                          ),
+                          child: Icon(
+                            note.isSelected
+                                ? Icons.check_circle
+                                : Icons.radio_button_unchecked,
+                            color: note.isSelected
+                                ? colorScheme.primary.withValues(alpha: 0.6)
+                                : Colors.grey,
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+
+                // 3. LEFT SIDE: The content column
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        note.title.isEmpty ? 'Untitled note' : note.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: UIConstants.noteCardTitleFontSize,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+
+                      const SizedBox(height: UIConstants.paddingXS),
+
+                      Text(
+                        'Edited: ${_formatTimestamp(note.updatedAt)}',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: UIConstants.noteCardEditedFontSize,
+                        ),
+                      ),
+
+                      const SizedBox(height: UIConstants.paddingSM),
+
+                      /// Preview lines loop
+                      ...previewLines.map(
+                        (line) => _PreviewLine(line: line, width: screenWidth),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 4. RIGHT SIDE: The Pin
+                AnimatedScale(
+                  scale: note.isPinned ? UIConstants.pinnedScale : 1.0,
+                  duration: UIConstants.animationFast,
+                  child: IconButton(
+                    icon: Icon(
+                      note.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                      size: UIConstants.iconSM,
+                      color: colorScheme.primary.withValues(alpha: 0.6),
+                    ),
+                    onPressed: onPin,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

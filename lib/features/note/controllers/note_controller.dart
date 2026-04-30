@@ -157,23 +157,22 @@ class NoteController {
     if (commandText.isEmpty) return null;
     isProcessingVoice.value = true;
 
-    // 1. IME SAFETY LOCK
     FocusManager.instance.primaryFocus?.unfocus();
     await Future.delayed(const Duration(milliseconds: 50));
 
     try {
-      // Hand off to GroqService (Make sure to update the import path if you moved it)
+      // 1. Fetch instructions from the API service
       final instructions = await GroqService.parseVoiceCommand(commandText);
 
       if (instructions == null || instructions.isEmpty) {
         return 'No instructions found.';
       }
 
-      // Hand off to Formatting Service
+      // 2. Pass the instructions to your new Formatting service
       final feedback = VoiceFormattingService.applyInstructions(
         instructions: instructions,
         controller: controller,
-        commandText: commandText,
+        commandText: '',
       );
 
       return feedback;

@@ -137,7 +137,38 @@ class _NoteAppBarState extends State<NoteAppBar> {
                 }
               },
             ),
-            _buildMenuItem(label: 'Share Note', onPressed: () {}),
+            _buildMenuItem(
+              label: 'Share Note',
+              onPressed: () async {
+                final isNotEmpty =
+                    widget.title.text.isNotEmpty &&
+                    widget.contentController.document.toPlainText().isNotEmpty;
+
+                if (isNotEmpty) {
+                  isSavingNotifier.value = true;
+                  try {
+                    final richData = widget.contentController.document
+                        .toDelta()
+                        .toJson();
+
+                    await NoteDocumentService.shareSingleNoteAsPdf(
+                      title: widget.title.text,
+                      richContent: richData,
+                    );
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        duration: UIConstants.snackbarShort,
+                        content: Text('Could not export PDF: $e'),
+                      ),
+                    );
+                  } finally {
+                    isSavingNotifier.value = false;
+                  }
+                }
+              },
+            ),
           ],
         ),
       ],

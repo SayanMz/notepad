@@ -51,24 +51,23 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: true,
 
       /// Top saving indicator
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(UIConstants.progressBarHeight),
-        child: ValueListenableBuilder(
-          valueListenable: isSavingNotifier,
-          builder: (_, isSaving, _) {
-            if (!isSaving) {
-              return const SizedBox(height: UIConstants.progressBarHeight);
-            }
+      // bottom: PreferredSize(
+      //   preferredSize: const Size.fromHeight(UIConstants.progressBarHeight),
+      //   child: ValueListenableBuilder(
+      //     valueListenable: isSavingNotifier,
+      //     builder: (_, isSaving, _) {
+      //       if (!isSaving) {
+      //         return const SizedBox(height: UIConstants.progressBarHeight);
+      //       }
 
-            return LinearProgressIndicator(
-              minHeight: UIConstants.progressBarHeight,
-              backgroundColor: colorScheme.primary.withValues(alpha: 0.6),
-              valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-            );
-          },
-        ),
-      ),
-
+      //       return LinearProgressIndicator(
+      //         minHeight: UIConstants.progressBarHeight,
+      //         backgroundColor: colorScheme.primary.withValues(alpha: 0.6),
+      //         valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+      //       );
+      //     },
+      //   ),
+      // ),
       actions: [
         /// Search
         IconButton(
@@ -94,6 +93,20 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
             rootScaffoldMessengerKey.currentState?.clearSnackBars();
 
             await Navigator.push(context, fadeRoute(const RecyclePage()));
+          },
+        ),
+
+        Builder(
+          builder: (context) {
+            return IconButton(
+              // Icons.sort gives it a unique "sorting/categorizing" feel for a menu
+              icon: const Icon(Icons.sort),
+              color: isDark ? Colors.white : colorScheme.onSurfaceVariant,
+              onPressed: () {
+                // Tapping this icon now smoothly opens the drawer
+                Scaffold.of(context).openEndDrawer();
+              },
+            );
           },
         ),
       ],

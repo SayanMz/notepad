@@ -4,6 +4,7 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:notepad/core/constants/ui_constants.dart';
 import 'package:notepad/core/theme/app_colors.dart';
 import 'package:notepad/main.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 class NoteToolbar extends StatefulWidget {
   const NoteToolbar({
@@ -47,6 +48,47 @@ class _NoteToolbarState extends State<NoteToolbar> {
     _rowScrollController.dispose();
     _fontSizeScrollController.dispose();
     super.dispose();
+  }
+
+  void _openCustomColorPicker() {
+    // Get currently selected color to start the picker with, default to black/white
+    final currentAttr = widget.controller
+        .getSelectionStyle()
+        .attributes['color'];
+    Color pickerColor = currentAttr != null
+        ? Color(int.parse(currentAttr.value.replaceFirst('#', '0xff')))
+        : (isDark ? Colors.white : Colors.black);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Custom Color'),
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: pickerColor,
+            onColorChanged: (color) => pickerColor = color,
+            pickerAreaHeightPercent: 0.7, // Balances height like your reference
+            enableAlpha: false, // Standard hex only for Quill
+            displayThumbColor: true,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final hex =
+                  '#${pickerColor.toARGB32().toRadixString(16).substring(2)}';
+              widget.controller.formatSelection(ColorAttribute(hex));
+              Navigator.pop(context);
+            },
+            child: const Text('Select'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _performNudge() async {
@@ -570,10 +612,13 @@ class _NoteToolbarState extends State<NoteToolbar> {
                 isDefault: true,
               ),
               _buildColorCircle(Colors.red),
-              _buildColorCircle(Colors.blue),
+              _buildColorCircle(Colors.pinkAccent),
+              _buildColorCircle(Colors.amber),
               _buildColorCircle(Colors.green),
-              _buildColorCircle(Colors.orange),
+              _buildColorCircle(Colors.blue),
               _buildColorCircle(Colors.purple),
+              // Rainbow trigger
+              _buildColorCircle(Colors.transparent, isRainbow: true),
             ],
           ),
         ),
@@ -581,33 +626,44 @@ class _NoteToolbarState extends State<NoteToolbar> {
     );
   }
 
-  Widget _buildColorCircle(Color color, {bool isDefault = false}) {
+  Widget _buildColorCircle(
+    Color color, {
+    bool isDefault = false,
+    bool isRainbow = false,
+  }) {
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, child) {
-        final hexString = '#${color.toARGB32().toRadixString(16).substring(2)}';
+        final String hexString =
+            '#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
         final bool isSelected = isDefault
             ? widget.controller.getSelectionStyle().attributes['color'] == null
-            : widget.controller
-                      .getSelectionStyle()
-                      .attributes['color']
-                      ?.value ==
-                  hexString;
+            : !isRainbow &&
+                  widget.controller
+                          .getSelectionStyle()
+                          .attributes['color']
+                          ?.value ==
+                      hexString;
         return GestureDetector(
           onTap: () {
-            final colorAttr = isDefault
-                ? Attribute.fromKeyValue('color', null)
-                : ColorAttribute(hexString);
-            if (widget.controller.selection.isCollapsed) {
-              widget.controller.formatSelection(colorAttr);
+            if (isRainbow) {
+              _openCustomColorPicker();
             } else {
-              widget.controller.formatText(
-                widget.controller.selection.start,
-                widget.controller.selection.end -
-                    widget.controller.selection.start,
-                colorAttr,
-              );
+              final colorAttr = isDefault
+                  ? Attribute.fromKeyValue('color', null)
+                  : ColorAttribute(hexString);
+              if (widget.controller.selection.isCollapsed) {
+                widget.controller.formatSelection(colorAttr);
+              } else {
+                widget.controller.formatText(
+                  widget.controller.selection.start,
+                  widget.controller.selection.end -
+                      widget.controller.selection.start,
+                  colorAttr,
+                );
+              }
             }
+
             widget.focusNode.requestFocus();
           },
           child: Container(
@@ -615,7 +671,22 @@ class _NoteToolbarState extends State<NoteToolbar> {
             width: UIConstants.toolbarColorCircleSize,
             height: UIConstants.toolbarColorCircleSize,
             decoration: BoxDecoration(
-              color: color,
+              // Use gradient for rainbow, solid color for others
+              color: isRainbow ? null : color,
+              gradient: isRainbow
+                  ? const SweepGradient(
+                      colors: [
+                        Colors.red,
+                        Colors.orange,
+                        Colors.yellow,
+                        Colors.green,
+                        Colors.blue,
+                        Colors.indigo,
+                        Colors.purple,
+                        Colors.red,
+                      ],
+                    )
+                  : null,
               shape: BoxShape.circle,
               border: Border.all(
                 color: isSelected ? Colors.lightGreenAccent : Colors.white,

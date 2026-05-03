@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:notepad/core/constants/ui_constants.dart';
-import 'package:notepad/core/theme/app_colors.dart';
 import 'package:notepad/features/note/data/note_repository.dart';
 import 'package:notepad/features/note/note_page.dart';
 import 'package:notepad/features/search/controllers/search_controller.dart'
@@ -73,11 +72,6 @@ class _SearchPageState extends State<SearchPage> {
     /// Current query derived from text field
 
     return Scaffold(
-      /// Background adapts to light/dark theme
-      backgroundColor: isDark
-          ? AppColors.darkScaffold
-          : AppColors.lightScaffold,
-
       /// ---------------------------------------------------------------------
       /// APP BAR
       /// ---------------------------------------------------------------------
@@ -183,17 +177,15 @@ class _SearchPageState extends State<SearchPage> {
                 controller: _searchController,
 
                 /// Handles navigation to note page
-                /// Refreshes search results only if note was modified
                 onNoteTap: (note) async {
-                  // 1. Just wait for the user to return. No payloads.
-                  final didChange = await Navigator.push(
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => NotePage(noteId: note.id),
                     ),
                   );
 
-                  if (mounted && didChange) _searchController.refresh();
+                  if (mounted) _searchController.refresh();
                 },
               ),
             ),
@@ -232,10 +224,13 @@ class _SearchPageState extends State<SearchPage> {
   /// - Receive updated filters
   /// - Apply via controller (triggers search)
   Future<void> _openSearchFilterDialog() async {
-    final result = await showDialog<SearchFilters>(
+    final result = await showModalBottomSheet<SearchFilters>(
       context: context,
-      builder: (_) =>
-          SearchFilterDialog(initialFilters: _searchController.filters),
+      // isScrollControlled: true, // Allows it to size correctly based on content
+      // backgroundColor:
+      //     Colors.transparent, // Lets us make custom rounded corners
+      builder: (context) =>
+          SearchFilterBottomSheet(initialFilters: _searchController.filters),
     );
 
     /// If user cancels dialog → no action

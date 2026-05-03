@@ -109,11 +109,11 @@ class SearchController extends ChangeNotifier {
     _recompute();
   }
 
+  /// Atomic State management
   /// Completely resets the search query and all filters,
   /// then triggers a single UI and database update.
-  void resetSearch() {
-    textController.clear();
-    _state = _state.copyWith(query: '', filters: const SearchFilters());
+  void clearFilter() {
+    _state = _state.copyWith(filters: const SearchFilters());
     _recompute();
   }
 
@@ -126,8 +126,9 @@ class SearchController extends ChangeNotifier {
   /// Behavior:
   /// - Updates state with new filters
   /// - Immediately recomputes search results
-  void applyFilters(SearchFilters filters) {
-    _state = _state.copyWith(filters: filters);
+  void applyFilters(SearchFilters newfilters) {
+    // copyWith preserves the existing _state.query, allowing Query + Filter!
+    _state = _state.copyWith(filters: newfilters);
     _recompute();
   }
 

@@ -45,7 +45,12 @@ class SearchResultsPanel extends StatelessWidget {
   /// - Delegates actual filtering to controller
   void _applyQuickFilter(int daysBack) {
     final now = DateTime.now();
-    final start = now.subtract(Duration(days: daysBack));
+    // Normalize to the very start of the day (00:00:00)
+    final start = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: daysBack));
 
     final filter = SearchFilters(
       isRangeSearch: true,
@@ -60,139 +65,131 @@ class SearchResultsPanel extends StatelessWidget {
     controller.applyFilters(filter);
   }
 
+  /// Checks if the current filter exactly matches a specific quick chip timeframe
+  bool _isQuickChipActive(SearchFilters currentFilters, int daysBack) {
+    if (!currentFilters.isRangeSearch) return false;
+
+    final now = DateTime.now();
+    final start = now.subtract(Duration(days: daysBack));
+
+    // Compare the controller's active filter dates to our expected quick chip dates
+    return currentFilters.startYear == start.year.toString() &&
+        currentFilters.startMonth == start.month.toString().padLeft(2, '0') &&
+        currentFilters.startDay == start.day.toString().padLeft(2, '0') &&
+        currentFilters.endYear == now.year.toString() &&
+        currentFilters.endMonth == now.month.toString().padLeft(2, '0') &&
+        currentFilters.endDay == now.day.toString().padLeft(2, '0');
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
 
-    /// -----------------------------------------------------------------------
-    /// ROOT REACTIVE BUILDER
-    /// -----------------------------------------------------------------------
-    ///
-    /// Listens to controller and rebuilds entire UI when state changes
     return ListenableBuilder(
       listenable: controller,
       builder: (context, child) {
         final query = controller.query;
         final results = controller.results;
         final hasCriteria = controller.hasAnyCriteria;
+        final hasFilters = controller.hasFilters;
+
+        final is1DayActive = _isQuickChipActive(controller.filters, 1);
+        final is7DaysActive = _isQuickChipActive(controller.filters, 7);
+        final is30DaysActive = _isQuickChipActive(controller.filters, 30);
+        final isAnyQuickChipActive =
+            is1DayActive || is7DaysActive || is30DaysActive;
 
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             /// ---------------------------------------------------------------
-            /// TOP SECTION: RESULT COUNT / QUICK FILTER CHIPS
+            /// TOP ROW: QUICK CHIPS & CLEAR BUTTON
             /// ---------------------------------------------------------------
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+              // Removed the redundant SizedBox(width: double.infinity) here
+              // because Expanded already forces maximum width.
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.bolt_rounded,
+                      size: 18,
+                      color: isAnyQuickChipActive
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Colors.grey[500],
+                    ),
+                    const SizedBox(width: 8),
+                    // _buildActionChip(
+                    //   label: 'Yesterday',
+                    //   isSelected: is1DayActive,
+                    //   onPressed: () => _applyQuickFilter(1),
+                    //   context: context,
+                    // ),
+                    // const SizedBox(width: 8),
+                    _buildActionChip(
+                      label: 'Past 7 days',
+                      isSelected: is7DaysActive,
+                      onPressed: () => _applyQuickFilter(7),
+                      context: context,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildActionChip(
+                      label: 'Past 30 days',
+                      isSelected: is30DaysActive,
+                      onPressed: () => _applyQuickFilter(30),
+                      context: context,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            /// ---------------------------------------------------------------
+            /// MIDDLE ROW: RESULT COUNT
+            /// ---------------------------------------------------------------
+            // Only render if there are results. Replaced Spacer with SizedBox.shrink()
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                /// LEFT SIDE (dynamic content)
-                Expanded(
-                  child: Builder(
-                    builder: (context) {
-                      /// STATE 1: Active search with results → show count
-                      if (hasCriteria && results.isNotEmpty) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              results.length == 1
-                                  ? '1 result'
-                                  : '${results.length} results',
-                              style: TextStyle(
-                                color: Colors.grey[700],
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-
-                      /// STATE 2: No search → show quick filter chips
-                      if (!hasCriteria) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          child: SizedBox(
-                            width: double.infinity,
-
-                            /// Horizontal scroll for filter chips
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  /// Icon indicating quick actions
-                                  Icon(
-                                    Icons.bolt_rounded,
-                                    size: 18,
-                                    color: Colors.grey[500],
-                                  ),
-                                  const SizedBox(width: 8),
-
-                                  /// Quick filter: Last 7 days
-                                  ActionChip(
-                                    label: const Text('Last 7 Days'),
-                                    visualDensity: VisualDensity.compact,
-                                    side: BorderSide.none,
-                                    backgroundColor: isDark
-                                        ? Colors.grey[800]
-                                        : Colors.grey[200],
-                                    onPressed: () => _applyQuickFilter(7),
-                                  ),
-
-                                  const SizedBox(width: 8),
-
-                                  /// Quick filter: Past Month
-                                  ActionChip(
-                                    label: const Text('Past Month'),
-                                    visualDensity: VisualDensity.compact,
-                                    side: BorderSide.none,
-                                    backgroundColor: isDark
-                                        ? Colors.grey[800]
-                                        : Colors.grey[200],
-                                    onPressed: () => _applyQuickFilter(30),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-
-                      /// Default empty state (no UI)
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                ),
-
-                /// -----------------------------------------------------------
-                /// CLEAR FILTER BUTTON
-                /// -----------------------------------------------------------
-                ///
-                /// Visible only when search/filter is active
-                if (results.isNotEmpty)
-                  TextButton.icon(
-                    onPressed: () {
-                      /// Delegates reset to controller
-                      controller.resetSearch();
-                    },
-
-                    icon: const Icon(Icons.filter_alt_off, size: 18),
-                    label: const Text('Clear Filter'),
-
-                    /// Subtle styling to avoid visual dominance
-                    style: TextButton.styleFrom(
-                      foregroundColor: isDark
-                          ? Colors.grey[400]
-                          : Colors.grey[700],
-                      textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                if (hasCriteria && results.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical:
+                          4, // Reduced vertical padding so it sits closer to results
+                    ),
+                    child: Text(
+                      results.length == 1
+                          ? '1 result'
+                          : '${results.length} results',
+                      style: TextStyle(
+                        color: Colors.grey[700],
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                else
+                  const SizedBox.shrink(),
+                Spacer(),
+                if (hasFilters)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: TextButton.icon(
+                      onPressed: () => controller.clearFilter(),
+                      icon: const Icon(Icons.filter_alt_off, size: 18),
+                      label: const Text('Clear Filter'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: isDark
+                            ? Colors.grey[400]
+                            : Colors.grey[700],
+                        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
+                const SizedBox(height: 4),
               ],
             ),
 
@@ -202,7 +199,6 @@ class SearchResultsPanel extends StatelessWidget {
             Expanded(
               child: Builder(
                 builder: (context) {
-                  /// STATE A: Initial (no query / no filters)
                   if (!hasCriteria) {
                     return const SearchMessage(
                       title: 'Search your notes by title or content',
@@ -212,7 +208,6 @@ class SearchResultsPanel extends StatelessWidget {
                     );
                   }
 
-                  /// STATE B: No results found
                   if (results.isEmpty) {
                     return SearchMessage(
                       title: query.isNotEmpty
@@ -224,20 +219,14 @@ class SearchResultsPanel extends StatelessWidget {
                     );
                   }
 
-                  /// STATE C: Results available
                   return ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 15),
                     itemCount: results.length,
-
-                    /// Builds each result item
                     itemBuilder: (context, index) {
                       final note = results[index];
-
                       return SearchResultCard(
                         note: note,
                         query: query,
-
-                        /// Delegate navigation handling
                         onTap: () => onNoteTap(note),
                       );
                     },
@@ -248,6 +237,27 @@ class SearchResultsPanel extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  //Quickly place Action chips in code
+  Widget _buildActionChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onPressed,
+    required BuildContext context,
+  }) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    Color chipColor = isSelected
+        ? Theme.of(context).colorScheme.primaryContainer.withAlpha(150)
+        : (isDark ? Colors.grey[800]! : Colors.grey[200]!);
+
+    return ActionChip(
+      label: Text(label),
+      onPressed: onPressed,
+      backgroundColor: chipColor,
+      visualDensity: VisualDensity.compact,
+      side: BorderSide.none,
     );
   }
 }

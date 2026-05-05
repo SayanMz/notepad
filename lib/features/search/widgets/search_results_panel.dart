@@ -5,47 +5,22 @@ import 'package:notepad/features/search/controllers/search_controller.dart'
 import 'package:notepad/features/search/models/search_filters.dart';
 import 'package:notepad/features/search/widgets/search_result_card.dart';
 
-/// ---------------------------------------------------------------------------
-/// SEARCH RESULTS PANEL
-/// ---------------------------------------------------------------------------
-///
-/// UI layer component responsible for:
-/// - Rendering search results
-/// - Displaying quick filters (chips)
-/// - Showing result count or empty states
-///
-/// Architectural Role:
-/// - Pure presentation layer
-/// - Delegates all logic/state to SearchController
-///
-/// Design:
-/// - Uses ListenableBuilder to react to controller changes
-/// - Keeps UI declarative and state minimal
 class SearchResultsPanel extends StatelessWidget {
   const SearchResultsPanel({
     required this.controller,
     required this.onNoteTap,
+    required this.showChips,
+    required this.onClearFilter, // NEW: Callback added
     super.key,
   });
 
-  /// Controller providing query, filters, and results
   final search_ctrl.SearchController controller;
-
-  /// Callback when a note is tapped
   final Future<void> Function(NotesSection note) onNoteTap;
+  final bool showChips;
+  final VoidCallback onClearFilter; // NEW: Triggers parent header reveal
 
-  /// -------------------------------------------------------------------------
-  /// QUICK FILTER APPLICATION
-  /// -------------------------------------------------------------------------
-  ///
-  /// Applies predefined date-range filters (e.g., last 7 days)
-  ///
-  /// Design:
-  /// - Converts relative time (daysBack) into absolute date filters
-  /// - Delegates actual filtering to controller
   void _applyQuickFilter(int daysBack) {
     final now = DateTime.now();
-    // Normalize to the very start of the day (00:00:00)
     final start = DateTime(
       now.year,
       now.month,
@@ -65,14 +40,12 @@ class SearchResultsPanel extends StatelessWidget {
     controller.applyFilters(filter);
   }
 
-  /// Checks if the current filter exactly matches a specific quick chip timeframe
   bool _isQuickChipActive(SearchFilters currentFilters, int daysBack) {
     if (!currentFilters.isRangeSearch) return false;
 
     final now = DateTime.now();
     final start = now.subtract(Duration(days: daysBack));
 
-    // Compare the controller's active filter dates to our expected quick chip dates
     return currentFilters.startYear == start.year.toString() &&
         currentFilters.startMonth == start.month.toString().padLeft(2, '0') &&
         currentFilters.startDay == start.day.toString().padLeft(2, '0') &&
@@ -103,63 +76,72 @@ class SearchResultsPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             /// ---------------------------------------------------------------
-            /// TOP ROW: QUICK CHIPS & CLEAR BUTTON
+            /// TOP ROW: ANIMATED QUICK CHIPS
             /// ---------------------------------------------------------------
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-              // Removed the redundant SizedBox(width: double.infinity) here
-              // because Expanded already forces maximum width.
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.bolt_rounded,
-                      size: 18,
-                      color: isAnyQuickChipActive
-                          ? Theme.of(context).colorScheme.primaryContainer
-                          : Colors.grey[500],
-                    ),
-                    const SizedBox(width: 8),
-                    // _buildActionChip(
-                    //   label: 'Yesterday',
-                    //   isSelected: is1DayActive,
-                    //   onPressed: () => _applyQuickFilter(1),
-                    //   context: context,
-                    // ),
-                    // const SizedBox(width: 8),
-                    _buildActionChip(
-                      label: 'Past 7 days',
-                      isSelected: is7DaysActive,
-                      onPressed: () => _applyQuickFilter(7),
-                      context: context,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildActionChip(
-                      label: 'Past 30 days',
-                      isSelected: is30DaysActive,
-                      onPressed: () => _applyQuickFilter(30),
-                      context: context,
-                    ),
-                  ],
-                ),
-              ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              child: showChips
+                  ? SizedBox(
+                      width: double.infinity,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 10, left: 5),
+
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.bolt_rounded,
+                                size: 18,
+                                color: isAnyQuickChipActive
+                                    ? Theme.of(
+                                        context,
+                                      ).colorScheme.primaryContainer
+                                    : Colors.grey[500],
+                              ),
+                              const SizedBox(width: 22.5),
+                              _buildActionChip(
+                                label: 'Yesterday',
+                                isSelected: is1DayActive,
+                                onPressed: () => _applyQuickFilter(1),
+                                context: context,
+                              ),
+                              const SizedBox(width: 8),
+                              _buildActionChip(
+                                label: 'Past 7 days',
+                                isSelected: is7DaysActive,
+                                onPressed: () => _applyQuickFilter(7),
+                                context: context,
+                              ),
+                              const SizedBox(width: 8),
+                              _buildActionChip(
+                                label: 'Past 30 days',
+                                isSelected: is30DaysActive,
+                                onPressed: () => _applyQuickFilter(30),
+                                context: context,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  : const SizedBox(width: double.infinity, height: 0),
             ),
 
             /// ---------------------------------------------------------------
-            /// MIDDLE ROW: RESULT COUNT
+            /// MIDDLE ROW: RESULT COUNT (Always Visible)
             /// ---------------------------------------------------------------
-            // Only render if there are results. Replaced Spacer with SizedBox.shrink()
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 if (hasCriteria && results.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical:
-                          4, // Reduced vertical padding so it sits closer to results
+                      horizontal: 12,
+                      vertical: 4,
                     ),
                     child: Text(
                       results.length == 1
@@ -178,7 +160,10 @@ class SearchResultsPanel extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(right: 6),
                     child: TextButton.icon(
-                      onPressed: () => controller.clearFilter(),
+                      onPressed: () {
+                        controller.clearFilter();
+                        onClearFilter(); // FIX: Fire the callback to reveal headers
+                      },
                       icon: const Icon(Icons.filter_alt_off, size: 18),
                       label: const Text('Clear Filter'),
                       style: TextButton.styleFrom(
@@ -220,8 +205,9 @@ class SearchResultsPanel extends StatelessWidget {
                   }
 
                   return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 15),
+                    padding: const EdgeInsets.only(left: 8, right: 15),
                     itemCount: results.length,
+                    physics: const BouncingScrollPhysics(),
                     itemBuilder: (context, index) {
                       final note = results[index];
                       return SearchResultCard(
@@ -240,7 +226,6 @@ class SearchResultsPanel extends StatelessWidget {
     );
   }
 
-  //Quickly place Action chips in code
   Widget _buildActionChip({
     required String label,
     required bool isSelected,

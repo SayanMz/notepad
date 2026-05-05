@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:notepad/core/constants/ui_constants.dart';
 import 'package:notepad/features/note/data/note_repository.dart';
 import 'package:notepad/features/note/note_page.dart';
@@ -8,21 +9,6 @@ import 'package:notepad/features/search/models/search_filters.dart';
 import 'package:notepad/features/search/widgets/search_filter_dialog.dart';
 import 'package:notepad/features/search/widgets/search_results_panel.dart';
 
-/// ---------------------------------------------------------------------------
-/// SEARCH PAGE
-/// ---------------------------------------------------------------------------
-///
-/// UI entry point for searching notes.
-///
-/// Responsibilities:
-/// - Capture user input (query)
-/// - Trigger filter dialog
-/// - Delegate all search logic to SearchController
-/// - Render results via SearchResultsPanel
-///
-/// Note:
-/// This widget intentionally contains no business logic.
-/// Controller handles state, debounce, and search execution.
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
 
@@ -31,25 +17,21 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPageState extends State<SearchPage> {
-  /// Controller responsible for:
-  /// - Query state
-  /// - Filter state
-  /// - Search execution
-  /// - Result caching
   late final search_ctrl.SearchController _searchController =
       search_ctrl.SearchController(repository: noteRepository);
 
-  /// Focus node for controlling keyboard focus of search field
   final FocusNode _searchFocusNode = FocusNode();
 
-  /// Helper getter for theme-based UI decisions
   bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+  // State to control visibility of AppBar and Chips
+  bool _showHeaders = true;
+
+  final bool _isOpeningSheet = false;
 
   @override
   void initState() {
     super.initState();
-
-    /// Ensures search field is focused after first frame render
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _searchFocusNode.requestFocus();
@@ -59,7 +41,6 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   void dispose() {
-    /// Clean up resources to prevent memory leaks
     _searchFocusNode.dispose();
     _searchController.dispose();
     super.dispose();
@@ -67,178 +48,233 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    /// Current query derived from text field
-
     return Scaffold(
-      /// ---------------------------------------------------------------------
-      /// APP BAR
-      /// ---------------------------------------------------------------------
-      appBar: AppBar(
-        title: const Text(
-          'Search Notes',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-      ),
+      body: SafeArea(
+        child: NotificationListener<UserScrollNotification>(
+          onNotification: (notification) {
+            // Hide headers when scrolling down
+            if (notification.direction == ScrollDirection.reverse) {
+              if (_showHeaders) setState(() => _showHeaders = false);
+            }
+            // Show headers when scrolling up
+            else if (notification.direction == ScrollDirection.forward) {
+              if (!_showHeaders) setState(() => _showHeaders = true);
+            }
+            return false;
+          },
+          child: Column(
+            children: [
+              /// ---------------------------------------------------------------
+              /// ANIMATED APP BAR (TextField + Filter exactly as requested)
+              /// ---------------------------------------------------------------
+              AnimatedSize(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topCenter,
+                child: _showHeaders
+                    ? SizedBox(
+                        width: double.infinity,
+                        child: AppBar(
+                          surfaceTintColor: Colors.transparent,
+                          // TextField securely placed in title
+                          title: Padding(
+                            padding: const EdgeInsets.only(right: 12.0),
+                            child: _buildSearchTextField(),
+                          ),
+                          titleSpacing: 0,
+                          // Filter button placed securely in actions
+                          actions: [
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: _searchFilter(),
+                            ),
+                          ],
+                          primary:
+                              false, // Prevents double spacing under SafeArea
+                          elevation: 0,
+                          backgroundColor: Colors.transparent,
+                        ),
+                      )
+                    : const SizedBox(width: double.infinity, height: 0),
+              ),
 
-      /// ---------------------------------------------------------------------
-      /// BODY
-      /// ---------------------------------------------------------------------
-      body: Padding(
-        padding: const EdgeInsets.all(10.0),
-        child: Column(
-          children: [
-            /// ---------------------------------------------------------------
-            /// SEARCH INPUT + FILTER BUTTON
-            /// ---------------------------------------------------------------
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    //Delegates query handling (debounce + search trigger)
-                    onChanged: _searchController.onQueryChanged,
-                    //Controller owned by SearchController (single source of truth)
-                    controller: _searchController.textController,
-                    focusNode: _searchFocusNode,
-                    textInputAction: TextInputAction.search,
-                    // Text color adapts to theme
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      prefixIcon: const Icon(Icons.search),
-                      hintText: 'Search title or content...',
-                      // Hint styling based on theme
-                      hintStyle: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      // Clear button appears only when query exists
-                      suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: _searchController.textController,
-                        builder: (context, value, _) {
-                          return value.text.isEmpty
-                              ? const SizedBox.shrink()
-                              : IconButton(
-                                  icon: Icon(Icons.clear),
-                                  // Clears query via controller
-                                  onPressed: () {
-                                    _searchController.clearQuery();
-                                    _searchFocusNode.requestFocus();
-                                  },
-                                );
-                        },
-                      ),
-                      filled: true,
-                      //Background surface styling
-                      fillColor: Theme.of(
+              /// ---------------------------------------------------------------
+              /// SEARCH RESULTS PANEL
+              /// ---------------------------------------------------------------
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: SearchResultsPanel(
+                    controller: _searchController,
+                    showChips: _showHeaders,
+                    // FIX: Force headers back open when clear filter is pressed
+                    onClearFilter: () {
+                      if (!_showHeaders) {
+                        setState(() => _showHeaders = true);
+                      }
+                    },
+                    onNoteTap: (note) async {
+                      await Navigator.push(
                         context,
-                      ).colorScheme.surfaceContainerHighest,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(
-                          UIConstants.radiusXL,
+                        MaterialPageRoute(
+                          builder: (context) => NotePage(noteId: note.id),
                         ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(
-                          UIConstants.radiusXL,
-                        ),
-                        //borderSide: BorderSide(color: Colors.blue),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: colorScheme.primary.withValues(alpha: 0.6),
-                          width: UIConstants.searchFieldBorderWidth,
-                        ),
-                        borderRadius: BorderRadius.circular(
-                          UIConstants.radiusXL,
-                        ),
-                      ),
-                    ),
+                      );
+                      if (mounted) {
+                        _searchController.refresh();
+                        // FIX: Safety check in case they deleted the last note
+                        if (_searchController.results.isEmpty &&
+                            !_showHeaders) {
+                          setState(() => _showHeaders = true);
+                        }
+                      }
+                    },
                   ),
                 ),
-                SizedBox(width: 6),
-
-                /// Filter icon button
-                Padding(
-                  padding: const EdgeInsets.all(10.0),
-                  child: _searchFilter(),
-                ),
-              ],
-            ),
-
-            /// ---------------------------------------------------------------
-            /// SEARCH RESULTS PANEL
-            /// ---------------------------------------------------------------
-            Expanded(
-              child: SearchResultsPanel(
-                controller: _searchController,
-
-                /// Handles navigation to note page
-                onNoteTap: (note) async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => NotePage(noteId: note.id),
-                    ),
-                  );
-
-                  if (mounted) _searchController.refresh();
-                },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  /// -------------------------------------------------------------------------
-  /// FILTER BUTTON WIDGET
-  /// -------------------------------------------------------------------------
-  ///
-  /// Opens search filter dialog when tapped
+  Widget _buildSearchTextField() {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return TextField(
+      onChanged: _searchController.onQueryChanged,
+      controller: _searchController.textController,
+      focusNode: _searchFocusNode,
+      textInputAction: TextInputAction.search,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: InputDecoration(
+        isDense: true,
+        prefixIcon: const Icon(Icons.search),
+        hintText: 'Search title or content...',
+        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+        suffixIcon: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _searchController.textController,
+          builder: (context, value, _) {
+            return value.text.isEmpty
+                ? const SizedBox.shrink()
+                : IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clearQuery();
+                      _searchFocusNode.requestFocus();
+                      // Also reveal headers if text is cleared manually
+                      if (!_showHeaders) setState(() => _showHeaders = true);
+                    },
+                  );
+          },
+        ),
+        filled: true,
+        fillColor: colorScheme.surfaceContainerHighest,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(UIConstants.radiusXL),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(UIConstants.radiusXL),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(
+            color: colorScheme.primary.withValues(alpha: 0.6),
+            width: UIConstants.searchFieldBorderWidth,
+          ),
+          borderRadius: BorderRadius.circular(UIConstants.radiusXL),
+        ),
+      ),
+    );
+  }
+
   Widget _searchFilter() {
     return IconButton(
       padding: EdgeInsets.zero,
-      constraints: BoxConstraints(),
-      onPressed: _openSearchFilterDialog, // Moves logic here
+      constraints: const BoxConstraints(),
+      onPressed: _openSearchFilterDialog,
       icon: ImageIcon(
         const AssetImage('assets/images/filter_icon.png'),
         color: isDark ? const Color(0xFFFFFFFF) : Colors.black54,
         size: 24,
       ),
-      // You can customize the splash radius if it feels too big
       splashRadius: 24,
     );
   }
 
-  /// -------------------------------------------------------------------------
-  /// FILTER DIALOG HANDLER - follows Delegation Pattern
-  /// -------------------------------------------------------------------------
-  ///
-  /// Flow:
-  /// - Open dialog with current filters
-  /// - Receive updated filters
-  /// - Apply via controller (triggers search)
+  // 2. Updated function with the "Guard" pattern
   Future<void> _openSearchFilterDialog() async {
-    final result = await showModalBottomSheet<SearchFilters>(
+    final result = await showGeneralDialog<SearchFilters>(
       context: context,
-      // isScrollControlled: true, // Allows it to size correctly based on content
-      // backgroundColor:
-      //     Colors.transparent, // Lets us make custom rounded corners
-      builder: (context) =>
-          SearchFilterBottomSheet(initialFilters: _searchController.filters),
+      barrierDismissible: true, // Tapping background closes it
+      barrierLabel: 'Dismiss Filter',
+      barrierColor: Colors.black.withValues(
+        alpha: 0.5,
+      ), // Impenetrable native barrier
+      transitionDuration: const Duration(
+        milliseconds: 400,
+      ), // Your custom speed
+      // 1. Where the widget sits on the screen
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: SafeArea(
+            bottom: true,
+            // 1. The Full-Surface Drag Detector
+            child: GestureDetector(
+              onVerticalDragUpdate: (details) {
+                // 2. HIGHER THRESHOLD: We use 7 instead of 1.
+                // This prevents accidental closures if the user slightly drags
+                // their finger while trying to tap a dropdown menu.
+                if (details.primaryDelta! > 7) {
+                  Navigator.pop(context);
+                }
+              },
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Material(
+                  color: Colors.transparent,
+                  // 3. Make sure the gesture detector "catches" taps everywhere,
+                  // even in the blank spaces between your UI elements.
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap:
+                        () {}, // Blocks tap-through to the background barrier
+                    child: SearchFilterBottomSheet(
+                      initialFilters: _searchController.filters,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+
+      // 2. The custom Slide Animation
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return SlideTransition(
+          position:
+              Tween<Offset>(
+                begin: const Offset(0, 1), // Starts off-screen at the bottom
+                end: Offset.zero, // Rests in its normal position
+              ).animate(
+                CurvedAnimation(
+                  parent: animation,
+                  curve: Curves
+                      .easeOutQuart, // A premium, smooth deceleration curve
+                ),
+              ),
+          child: child,
+        );
+      },
     );
 
-    /// If user cancels dialog → no action
-    if (result == null) {
-      return;
-    }
-
-    /// Apply filters and trigger search
+    // This code only runs AFTER the dialog is fully closed
+    if (result == null) return;
     _searchController.applyFilters(result);
+
+    // Reveal headers if hidden
+    if (!_showHeaders) setState(() => _showHeaders = true);
   }
 }
